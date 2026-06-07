@@ -43,7 +43,7 @@ export default function CadastroMotoristaPublicoPage() {
       const res = await fetch('/api/motoristas-cadastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, cpf, dataNascimento, telefone, email, endereco, cnh, cnhCategoria, tipoVeiculo, documentos: docs, observacoes }),
+        body: JSON.stringify({ nome, cpf, dataNascimento, telefone, email, endereco, cnh, cnhCategoria, tipoVeiculo, tipoContrato, documentos: docs, observacoes }),
       });
       const data = await res.json();
       setResultado(data);
@@ -95,6 +95,16 @@ export default function CadastroMotoristaPublicoPage() {
         {passo === 1 && (
           <div className="bg-gray-900/80 rounded-2xl p-5 border border-white/10">
             <h2 className="text-white font-bold text-base mb-4">👤 Dados Pessoais</h2>
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <button onClick={() => setTipoContrato("clt")}
+              className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${tipoContrato === "clt" ? "bg-blue-600/20 border-blue-500/50 text-blue-400" : "bg-gray-800 border-white/10 text-gray-400 hover:bg-gray-700"}`}>
+              👔 CLT (Funcionário)
+            </button>
+            <button onClick={() => setTipoContrato("autonomo")}
+              className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${tipoContrato === "autonomo" ? "bg-blue-600/20 border-blue-500/50 text-blue-400" : "bg-gray-800 border-white/10 text-gray-400 hover:bg-gray-700"}`}>
+              🚚 Autônomo
+            </button>
+          </div>
             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome completo" className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-blue-500/50" />
             <div className="grid grid-cols-2 gap-3 mb-3">
               <input value={cpf} onChange={e => setCpf(mascaraCPF(e.target.value))} placeholder="CPF" maxLength={14} className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
