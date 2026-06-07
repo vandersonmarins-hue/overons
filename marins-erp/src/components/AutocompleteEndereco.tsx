@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapPin, Search, X } from 'lucide-react';
 
+const GOOGLE_API_KEY = 'AIzaSyAt3eYbH9YklC9DcdU_5mpJUqj9mvqzvM8';
+
 interface Sugestao {
-  display_name: string;
-  lat: string;
-  lon: string;
+  description: string;
+  place_id: string;
+  address?: string;
 }
 
 interface Props {
@@ -26,26 +28,50 @@ export default function AutocompleteEndereco({ value, onChange, onSelect, placeh
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (!value || value.length < 4) { setSugestoes([]); setAberto(false); return; }
+
+    if (!value || value.length < 3) {
+      setSugestoes([]);
+      setAberto(false);
+      return;
+    }
 
     timerRef.current = setTimeout(async () => {
       setLoading(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=5&countrycodes=br`,
-          { headers: { 'Accept-Language': 'pt-BR' } }
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(value)}&types=address&language=pt-BR&components=country:br&key=${GOOGLE_API_KEY}`
         );
         const data = await res.json();
-        setSugestoes(data || []);
-        setAberto(data?.length > 0);
-      } catch {}
+        if (data.predictions) {
+          setSugestoes(data.predictions.map((p: any) => ({
+            description: p.description,
+            place_id: p.place_id,
+          })));
+          setAberto(data.predictions.length > 0);
+        }
+      } catch {
+        // Fallback: tenta Nominatim se Google falhar
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=5&countrycodes=br`,
+            { headers: { 'Accept-Language': 'pt-BR' } }
+          );
+          const data = await res.json();
+          if (data) {
+            setSugestoes(data.map((d: any) => ({
+              description: d.display_name,
+              place_id: d.place_id || d.osm_id,
+            })));
+            setAberto(data.length > 0);
+          }
+        } catch {}
+      }
       setLoading(false);
-    }, 400);
+    }, 300);
 
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [value]);
 
-  // Fecha ao clicar fora
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setAberto(false);
@@ -54,10 +80,35 @@ export default function AutocompleteEndereco({ value, onChange, onSelect, placeh
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const selecionar = (s: Sugestao) => {
+  const buscarDetalhes = async (placeId: string) => {
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry,formatted_address&key=${GOOGLE_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.result?.geometry?.location) {
+        return {
+          lat: data.result.geometry.location.lat,
+          lng: data.result.geometry.location.lng,
+          endereco: data.result.formatted_address || '',
+        };
+      }
+    } catch {}
+    return null;
+  };
+
+  const selecionar = async (s: Sugestao) => {
     setAberto(false);
-    onChange(s.display_name);
-    if (onSelect) onSelect(s.display_name, parseFloat(s.lat), parseFloat(s.lon));
+    onChange(s.description);
+
+    if (onSelect) {
+      const detalhes = await buscarDetalhes(s.place_id);
+      if (detalhes) {
+        onSelect(detalhes.endereco, detalhes.lat, detalhes.lng);
+      } else {
+        onSelect(s.description, 0, 0);
+      }
+    }
   };
 
   return (
@@ -78,10 +129,10 @@ export default function AutocompleteEndereco({ value, onChange, onSelect, placeh
       {aberto && sugestoes.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-white/10 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
           {sugestoes.map((s, i) => (
-            <button key={i} onClick={() => selecionar(s)}
+            <button key={s.place_id || i} onClick={() => selecionar(s)}
               className="w-full text-left px-4 py-3 text-sm text-gray-200 hover:bg-gray-700 flex items-start gap-3 border-b border-white/5 last:border-0">
               <MapPin size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
-              <span className="line-clamp-2">{s.display_name}</span>
+              <span className="line-clamp-2">{s.description}</span>
             </button>
           ))}
         </div>
