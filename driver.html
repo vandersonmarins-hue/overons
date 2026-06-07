@@ -887,9 +887,12 @@
                         var e = entregas[i];
                         var veiculoIcono = {moto:'🏍️',carro:'🚗',fiorino:'🚐',van:'🚐',truck:'🚛',caminhao:'🚛'};
                     var veiculoLabel = {moto:'Moto',carro:'Carro',fiorino:'Fiorino',van:'Van',truck:'Truck',caminhao:'Caminhão'};
-                    html += '<div class="available-item">'
-                            + '<div class="a-cliente">📦 ' + (e.cliente || 'Cliente') + '</div>'
-                            + '<div class="a-endereco">📍 ' + (e.endereco || '') + '</div>'
+                    // Oculta dados do cliente se configurado
+                    var nomeCliente = (e.ocultarCliente !== false) ? '🔒 Cliente' : (e.cliente || 'Cliente');
+                    var enderecoResumido = (e.ocultarCliente !== false) ? '🔒 Endereço liberado ao aceitar' : (e.endereco || '');
+                    html += '<div class="available-item" data-cliente="' + (e.cliente || 'Cliente') + '" data-endereco="' + (e.endereco || '') + '">'
+                            + '<div class="a-cliente">📦 ' + nomeCliente + '</div>'
+                            + '<div class="a-endereco">📍 ' + enderecoResumido + '</div>'
                             + (e.tipoVeiculo ? '<div style="font-size:11px;color:#888;margin-top:1px;">' + (veiculoIcono[e.tipoVeiculo] || '🚚') + ' Veículo: ' + (veiculoLabel[e.tipoVeiculo] || e.tipoVeiculo) + '</div>' : '')
                             + (e.valor > 0 ? '<div style="font-size:13px;font-weight:bold;color:#667eea;margin-top:2px;">💰 R$ ' + e.valor.toFixed(2) + '</div>' : '')
                             + '<div class="a-actions">'
@@ -907,10 +910,17 @@
         function aceitarEntrega(entregaId, cliente, btn) {
             if (!socket) return;
             socket.emit('driver-accept-delivery', { entregaId: entregaId, driverId: driverId });
-            // Troca botoes por mensagem
+            // Mostra dados completos apos aceitar
             var item = btn.closest('.available-item');
             if (item) {
-                item.innerHTML = '<div style="text-align:center;padding:8px;color:#667eea;font-weight:bold;">✅ Entrega aceita!<br><span style="font-size:12px;font-weight:normal;color:#888;">A empresa entrara em contato em breve.</span></div>';
+                var enderecoCompleto = item.getAttribute('data-endereco') || 'Disponivel apos contato';
+                var clienteCompleto = item.getAttribute('data-cliente') || 'Cliente';
+                item.innerHTML = '<div style="text-align:center;padding:12px;">'
+                    + '<div style="font-size:16px;font-weight:bold;color:#667eea;margin-bottom:4px;">✅ Entrega aceita!</div>'
+                    + '<div style="font-size:13px;color:#333;margin-bottom:2px;">👤 ' + clienteCompleto + '</div>'
+                    + '<div style="font-size:12px;color:#888;">📍 ' + enderecoCompleto + '</div>'
+                    + '<div style="font-size:12px;color:#888;margin-top:6px;">A empresa entrara em contato em breve.</div>'
+                    + '</div>';
             }
             mostrarNotificacao('✅ Entrega aceita! A empresa entrara em contato para mais informacoes.');
         }

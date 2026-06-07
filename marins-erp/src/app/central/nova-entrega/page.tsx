@@ -14,6 +14,7 @@ export default function NovaEntregaPage() {
   const [driverId, setDriverId] = useState("");
   const [tipoVeiculo, setTipoVeiculo] = useState("");
   const [precoViagem, setPrecoViagem] = useState("");
+  const [ocultarCliente, setOcultarCliente] = useState(true);
   const [origem, setOrigem] = useState("");
   const [distancia, setDistancia] = useState<number|null>(null);
   const [tempo, setTempo] = useState<number|null>(null);
@@ -55,6 +56,7 @@ export default function NovaEntregaPage() {
           origem: origem || undefined,
           distanciaKm: distancia || undefined,
           tempoMin: tempo || undefined,
+          ocultarCliente: ocultarCliente,
           observacoes: observacoes.trim(),
           produtos: produtos.filter(p => p.nome.trim()),
           tipoVeiculo: tipoVeiculo || undefined,
@@ -136,6 +138,16 @@ export default function NovaEntregaPage() {
           <input value={cliente} onChange={e => setCliente(e.target.value)}
             placeholder="Nome do cliente" className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-blue-500/50" />
           <AutocompleteEndereco value={endereco} onChange={setEndereco} placeholder="Endereco completo da entrega" className="mb-3" />
+          <div className="flex items-center gap-3 mb-4 bg-gray-800/80 rounded-xl p-3 border border-white/5">
+            <button onClick={() => setOcultarCliente(!ocultarCliente)}
+              className={`w-12 h-7 rounded-full transition-colors relative ${ocultarCliente ? 'bg-blue-600' : 'bg-gray-700'}`}>
+              <div className={`w-5 h-5 rounded-full bg-white absolute top-1 transition-all ${ocultarCliente ? 'left-6' : 'left-1'}`} />
+            </button>
+            <div>
+              <div className="text-white text-sm font-medium">Ocultar dados do cliente</div>
+              <div className="text-gray-500 text-xs">O motorista ve apenas a região até aceitar a entrega</div>
+            </div>
+          </div>
           <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
             placeholder="Observacoes (opcional)" rows={2}
             className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
