@@ -5,7 +5,7 @@ import { FileText, Fuel, CheckCircle, TrendingUp, Download, Filter, Shield } fro
 import { isMaster, loginMaster } from '@/lib/permissoes';
 
 export default function CompanyReportsPage() {
-  const [autenticado, setAutenticado] = useState(isMaster());
+  const [autenticado, setAutenticado] = useState(false);
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
 

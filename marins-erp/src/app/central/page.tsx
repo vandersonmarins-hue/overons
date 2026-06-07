@@ -7,7 +7,7 @@ import AcompanhamentoClientes from '@/components/central/AcompanhamentoClientes'
 import { loginMaster, logoutMaster, isMaster, getPermissoes } from '@/lib/permissoes';
 
 export default function CentralPage() {
-  const [autenticado, setAutenticado] = useState(isMaster());
+  const [autenticado, setAutenticado] = useState(false);
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [data, setData] = useState<any>(null);
