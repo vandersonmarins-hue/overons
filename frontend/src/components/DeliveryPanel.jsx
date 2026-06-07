@@ -1,59 +1,55 @@
 import { useEffect, useState } from 'react';
 import './DeliveryPanel.css';
 
-export default function DeliveryPanel({ deliveryLog }) {
+const STATUS_MAP = {
+  pendente: { icon: '⏳', label: 'Aguardando Motorista', color: '#fdcb6e' },
+  aceita: { icon: '✅', label: 'Motorista a Caminho', color: '#00b894' },
+  recusada: { icon: '❌', label: 'Recusada', color: '#d63031' },
+  concluida: { icon: '✅', label: 'Concluida', color: '#00b894' },
+  ENTREGUE: { icon: '✅', label: 'Entregue', color: '#00b894' },
+  SAIU_PARA_ENTREGA: { icon: '🚚', label: 'Em Rota', color: '#0984e3' },
+  PROXIMO_CLIENTE: { icon: '📍', label: 'Proximo', color: '#00b894' },
+  EM_SEPARACAO: { icon: '📦', label: 'Separacao', color: '#fdcb6e' },
+};
+
+export default function DeliveryPanel({ deliveryLog, socket }) {
   const [allDeliveries, setAllDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDeliveries = async () => {
-      try {
-        const res = await fetch('/api/entregas');
-        if (res.ok) {
-          const data = await res.json();
-          setAllDeliveries(data || []);
-        }
-      } catch {}
-      setLoading(false);
-    };
-    fetchDeliveries();
-    const id = setInterval(fetchDeliveries, 10000);
-    return () => clearInterval(id);
-  }, []);
+  const load = () => {
+    fetch('/api/entregas')
+      .then(r => r.json())
+      .then(d => setAllDeliveries(d || []))
+      .catch(() => {})
+      .then(() => setLoading(false));
+  };
 
-  // Merge API deliveries + real-time deliveryLog
+  useEffect(() => { load(); const id = setInterval(load, 10000); return () => clearInterval(id); }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const h = () => load();
+    socket.on('new-delivery-log', h);
+    socket.on('delivery-accepted', h);
+    return () => { socket.off('new-delivery-log', h); socket.off('delivery-accepted', h); };
+  }, [socket]);
+
   const merged = [];
   const seen = new Set();
 
-  // Primeiro as da API (persistidas)
   for (const d of allDeliveries) {
     merged.push({ ...d, _source: 'api' });
     seen.add(d.pedidoId || d.id);
   }
-
-  // Depois as do tempo real (Socket.IO) que ainda nao estao na lista
   if (deliveryLog) {
     for (const d of deliveryLog) {
       const key = d.id || d.pedidoId || Math.random();
-      if (!seen.has(key)) {
-        merged.push({ ...d, _source: 'socket' });
-        seen.add(key);
-      }
+      if (!seen.has(key)) { merged.push({ ...d, _source: 'socket' }); seen.add(key); }
     }
   }
+  merged.sort((a, b) => ((b.criadaEm || b.createdAt) || '').localeCompare((a.criadaEm || a.createdAt) || ''));
 
-  // Ordenar do mais recente primeiro
-  merged.sort((a, b) => {
-    const da = a.criadaEm || a.createdAt || '';
-    const db = b.criadaEm || b.createdAt || '';
-    return db.localeCompare(da);
-  });
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    try { return new Date(dateStr).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
-    catch { return dateStr; }
-  };
+  const fmt = (s) => { try { return new Date(s).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return s || '—'; } };
 
   return (
     <div className="delivery-panel">
@@ -74,32 +70,24 @@ export default function DeliveryPanel({ deliveryLog }) {
         <div className="delivery-empty">Nenhuma entrega registrada</div>
       ) : (
         <div className="delivery-list" style={{maxHeight:400, overflowY:'auto'}}>
-          {merged.map((d, i) => (
-            <div key={d.id || d.pedidoId || i} className={`delivery-card ${d.status === 'concluida' || d.status === 'ENTREGUE' ? 'concluida' : ''}`}>
-              <div className="del-card-header">
-                <span className="del-motorista">
-                  {d.status === 'ENTREGUE' || d.status === 'concluida' ? '✅' : d.status === 'SAIU_PARA_ENTREGA' || d.status === 'PROXIMO_CLIENTE' ? '🚚' : '📋'}
-                  {' '}{d.cliente || d.clienteNome || d.driverId?.substring(0, 10) || '—'}
-                </span>
-                <span className={`del-status ${d.status === 'concluida' || d.status === 'ENTREGUE' ? 'concluida' : ''}`}
-                  style={{fontSize:10, padding:'2px 6px', borderRadius:6, background: (d.status === 'concluida' || d.status === 'ENTREGUE') ? 'rgba(0,184,148,0.15)' : 'rgba(253,203,110,0.15)', color: (d.status === 'concluida' || d.status === 'ENTREGUE') ? '#00b894' : '#fdcb6e'}}>
-                  {d.status === 'ENTREGUE' ? '✅ Entregue' :
-                   d.status === 'concluida' ? '✅ Concluída' :
-                   d.status === 'SAIU_PARA_ENTREGA' ? '🚚 Em Rota' :
-                   d.status === 'PROXIMO_CLIENTE' ? '📍 Próximo' :
-                   d.status === 'EM_SEPARACAO' ? '📦 Separação' :
-                   d.status || '📋 Pendente'}
-                </span>
+          {merged.map((d, i) => {
+            const st = STATUS_MAP[d.status] || { icon: '📋', label: d.status || 'Pendente', color: '#636e72' };
+            return (
+              <div key={d.id || d.pedidoId || i} className="delivery-card" style={{borderLeftColor: st.color}}>
+                <div className="del-card-header">
+                  <span className="del-motorista">{st.icon} {d.cliente || d.clienteNome || d.driverId?.substring(0,10) || '—'}</span>
+                  <span className="del-status" style={{fontSize:10, padding:'2px 6px', borderRadius:6, background: st.color + '22', color: st.color}}>{st.label}</span>
+                </div>
+                <div className="del-card-body">
+                  <div className="del-info"><i className="fas fa-map-pin"></i> {d.endereco || d.enderecoCompleto || '—'}</div>
+                  {d.chaveAcesso && <div className="del-info" style={{color:'#fdcb6e'}}><i className="fas fa-key"></i> Chave: {d.chaveAcesso}</div>}
+                  {d.pedidoId && <div className="del-info"><i className="fas fa-hashtag"></i> {d.pedidoId}</div>}
+                  {d.observacoes && <div className="del-info" style={{color:'#e17055'}}><i className="fas fa-sticky-note"></i> {d.observacoes}</div>}
+                  <div className="del-info time"><i className="fas fa-clock"></i> {fmt(d.criadaEm || d.createdAt)}</div>
+                </div>
               </div>
-              <div className="del-card-body">
-                <div className="del-info"><i className="fas fa-map-pin"></i> {d.endereco || d.enderecoCompleto || '—'}</div>
-                {d.chaveAcesso && <div className="del-info" style={{color:'#fdcb6e'}}><i className="fas fa-key"></i> Chave: {d.chaveAcesso}</div>}
-                {d.pedidoId && <div className="del-info"><i className="fas fa-hashtag"></i> {d.pedidoId}</div>}
-                {d.observacoes && <div className="del-info" style={{color:'#e17055'}}><i className="fas fa-sticky-note"></i> {d.observacoes}</div>}
-                <div className="del-info time"><i className="fas fa-clock"></i> {formatDate(d.criadaEm || d.createdAt)}</div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

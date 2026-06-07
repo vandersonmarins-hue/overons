@@ -54,6 +54,7 @@ const io = new Server(server, {
 // ==================== ARMAZENAMENTO EM MEMORIA (tempo real) ====================
 const drivers = new Map();
 const deliveries = [];
+let globalEntregas = [];
 
 // ==================== ROTAS PUBLICAS ====================
 
@@ -666,6 +667,82 @@ io.on('connection', (socket) => {
     const d = drivers.get(data.driverId);
     if (d) io.to(d.socketId).emit('new-delivery', { id: novaEntrega.id, endereco: data.endereco, cliente: data.cliente, valor: data.valor });
     io.emit('new-delivery-log', novaEntrega); io.emit('drivers-update', getDriversList()); salvarDados();
+  });
+
+  // Empresa atribui entrega a um motorista (ou broadcast)
+  socket.on('assign-delivery', (data) => {
+    if (!data || !data.endereco) return;
+    const entrega = {
+      id: Date.now().toString(),
+      entregadorId: data.driverId || '',
+      endereco: data.endereco,
+      cliente: data.cliente || 'Nao informado',
+      valor: data.valor || 0,
+      status: 'pendente',
+      criadaEm: new Date().toISOString(),
+      aceitaEm: null,
+    };
+
+    // Salva na memoria
+    if (!globalEntregas) globalEntregas = [];
+    globalEntregas.push(entrega);
+
+    if (data.driverId) {
+      // Enviar para motorista especifico
+      const d = drivers.get(data.driverId);
+      if (d && d.socketId) {
+        io.to(d.socketId).emit('new-available-delivery', entrega);
+        console.log(`📦 Entrega enviada para ${data.driverId} aguardar aceite`);
+      }
+    } else {
+      // Broadcast para todos motoristas online
+      let count = 0;
+      for (const [id, d] of drivers) {
+        if (d.status === 'online' && d.socketId) {
+          io.to(d.socketId).emit('new-available-delivery', entrega);
+          count++;
+        }
+      }
+      console.log(`📦 Entrega enviada para ${count} motoristas aguardar aceite`);
+    }
+
+    io.emit('new-delivery-log', { ...entrega, status: 'pendente' });
+    io.emit('drivers-update', getDriversList());
+  });
+
+  // Motorista aceita entrega
+  socket.on('driver-accept-delivery', (data) => {
+    if (!data || !data.entregaId) return;
+    const entrega = globalEntregas?.find(e => e.id === data.entregaId);
+    if (!entrega) return;
+
+    entrega.status = 'aceita';
+    entrega.aceitaEm = new Date().toISOString();
+    entrega.entregadorId = data.driverId || '';
+
+    console.log(`✅ Motorista ${data.driverId} aceitou entrega ${data.entregaId}`);
+    io.emit('new-delivery-log', entrega);
+    io.emit('drivers-update', getDriversList());
+    io.emit('delivery-accepted', { entregaId: data.entregaId, driverId: data.driverId });
+  });
+
+  // Motorista recusa entrega
+  socket.on('driver-reject-delivery', (data) => {
+    if (!data || !data.entregaId) return;
+    console.log(`❌ Motorista ${data.driverId || '?'} recusou entrega ${data.entregaId}`);
+    // Reenvia para outros motoristas disponiveis
+    const entrega = globalEntregas?.find(e => e.id === data.entregaId);
+    if (entrega) {
+      entrega.status = 'recusada';
+      // Procura outro motorista online
+      for (const [id, d] of drivers) {
+        if (d.status === 'online' && d.socketId && id !== data.driverId) {
+          io.to(d.socketId).emit('new-available-delivery', entrega);
+          break;
+        }
+      }
+    }
+    io.emit('new-delivery-log', { ...entrega, status: 'recusada' });
   });
 
   // Empresa envia mensagem para o motorista

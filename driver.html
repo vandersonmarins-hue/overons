@@ -565,7 +565,60 @@
             setTimeout(() => notif.remove(), 3000);
         }
         
-        // Popup chamativo de mensagem da empresa (SIMPLIFICADO - SEM ERRO)
+        // Popup de aceite de entrega
+        function mostrarPopupAceite(entrega) {
+            try {
+                var old = document.getElementById('popup-aceite');
+                if (old) old.remove();
+
+                var p = document.createElement('div');
+                p.id = 'popup-aceite';
+                p.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:999999;';
+
+                var b = document.createElement('div');
+                b.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:20px;padding:32px 28px;max-width:360px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+
+                b.innerHTML = '<div style="font-size:40px;margin-bottom:8px;">📦</div>'
+                    + '<div style="font-size:14px;opacity:0.9;margin-bottom:2px;">Nova Entrega Disponivel</div>'
+                    + '<div style="font-size:13px;margin-bottom:12px;opacity:0.7;">' + (entrega.cliente || 'Cliente') + '</div>'
+                    + '<div style="font-size:15px;font-weight:bold;margin-bottom:6px;line-height:1.3;">📍 ' + entrega.endereco + '</div>'
+                    + (entrega.valor > 0 ? '<div style="font-size:18px;font-weight:bold;margin-bottom:10px;">R$ ' + entrega.valor.toFixed(2) + '</div>' : '')
+                    + '<div style="display:flex;gap:8px;margin-top:14px;">'
+                    + '<button id="btn-recusar" style="flex:1;padding:12px;border:none;border-radius:10px;background:rgba(255,255,255,0.15);color:#fff;font-size:14px;font-weight:bold;cursor:pointer;">Recusar</button>'
+                    + '<button id="btn-aceitar" style="flex:1;padding:12px;border:none;border-radius:10px;background:#fff;color:#667eea;font-size:14px;font-weight:bold;cursor:pointer;">✅ Aceitar</button>'
+                    + '</div>';
+
+                p.appendChild(b);
+                document.body.appendChild(p);
+
+                document.getElementById('btn-aceitar').onclick = function() {
+                    p.remove();
+                    if (window.socket) {
+                        window.socket.emit('driver-accept-delivery', { entregaId: entrega.id, driverId: driverId });
+                        mostrarNotificacao('✅ Entrega aceita! Dirija-se ao endereco.');
+                    }
+                };
+                document.getElementById('btn-recusar').onclick = function() {
+                    p.remove();
+                    if (window.socket) {
+                        window.socket.emit('driver-reject-delivery', { entregaId: entrega.id, driverId: driverId });
+                        mostrarNotificacao('❌ Entrega recusada');
+                    }
+                };
+
+                // Beep
+                try {
+                    var ctx = new(window.AudioContext || window.webkitAudioContext)();
+                    var o = ctx.createOscillator();
+                    o.type = 'sine'; o.frequency.value = 880;
+                    var g = ctx.createGain(); g.gain.value = 0.3;
+                    o.connect(g); g.connect(ctx.destination);
+                    o.start(); setTimeout(function(){ o.stop(); ctx.close(); }, 400);
+                } catch(e) {}
+            } catch(e) { console.error('Erro popup aceite:', e); }
+        }
+
+        // Popup chamativo de mensagem da empresa
         function mostrarPopupEmpresa(msg) {
             try {
                 var old = document.getElementById('popup-empresa');
@@ -739,6 +792,11 @@
                 if (isOnline) {
                     mostrarNotificacao(`📦 Nova entrega para ${delivery.endereco}! ${delivery.cliente ? 'Cliente: ' + delivery.cliente : ''}`);
                 }
+            });
+
+            // Nova entrega disponivel (com aceite)
+            socket.on('new-available-delivery', (entrega) => {
+                mostrarPopupAceite(entrega);
             });
 
             // Mensagem da empresa (popup chamativo)
