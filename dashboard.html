@@ -91,6 +91,13 @@
             cursor: pointer;
         }
         .driver-card:hover { background: #1a1a4e; }
+.driver-card.selected { 
+    background: #0a1628; 
+    box-shadow: 0 0 0 2px #00b894; 
+    transform: scale(1.02); 
+}
+.driver-card.has-location { cursor: pointer; }
+.driver-card:not(.has-location) { cursor: default; opacity: 0.5; }
         .driver-card.online { border-left-color: #00b894; }
         .driver-card.offline { border-left-color: #636e72; opacity: 0.6; }
         .driver-card.has-delivery { border-left-color: #fdcb6e; }
@@ -452,9 +459,12 @@
             for (const d of drivers) {
                 const statusClass = d.status || 'offline';
                 const timeAgo = d.ultimaAtualizacao ? timeSince(new Date(d.ultimaAtualizacao)) : '—';
+                const hasLocation = d.latitude && d.longitude;
                 
                 html += `
-                    <div class="driver-card ${statusClass}" onclick="map.setView([${d.latitude || -23.5505}, ${d.longitude || -46.6333}], 15);">
+                    <div class="driver-card ${statusClass} ${hasLocation ? 'has-location' : ''}" 
+                         data-driver="${d.id}"
+                         onclick="focarMotorista('${d.id}', ${d.latitude || 0}, ${d.longitude || 0})">
                         <div class="d-header">
                             <span class="d-name"><i class="fas fa-truck"></i> ${d.id.substring(0, 14)}</span>
                             <span class="d-status ${statusClass}">${statusClass === 'online' ? '🟢 Online' : '⚪ Offline'}</span>
@@ -639,6 +649,28 @@
             const hours = Math.floor(minutes / 60);
             if (hours < 24) return `${hours}h atrás`;
             return `${Math.floor(hours / 24)}d atrás`;
+        }
+        
+        // ==================== FOCAR MOTORISTA NO MAPA ====================
+        function focarMotorista(driverId, lat, lng) {
+            if (!lat || !lng) {
+                showToast('⚠️ Motorista sem localização disponível');
+                return;
+            }
+            
+            // Animar o mapa ate o motorista
+            map.flyTo([lat, lng], 16, { duration: 1.5 });
+            
+            // Abrir popup do marcador
+            if (markers.has(driverId)) {
+                const m = markers.get(driverId);
+                m.marker.openPopup();
+            }
+            
+            // Destacar card selecionado
+            document.querySelectorAll('.driver-card').forEach(c => c.classList.remove('selected'));
+            const card = document.querySelector(`.driver-card[data-driver="${driverId}"]`);
+            if (card) card.classList.add('selected');
         }
         
         console.log('✅ Dashboard Overons carregado!');
