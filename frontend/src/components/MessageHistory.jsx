@@ -4,14 +4,19 @@ import './MessageHistory.css';
 
 export default function MessageHistory({ socket }) {
   const [messages, setMessages] = useState([]);
+  const [debug, setDebug] = useState('iniciando...');
 
   useEffect(() => {
-    api('/api/messages').then(setMessages).catch(() => {});
+    setDebug('buscando...');
+    api('/api/messages').then(data => {
+      setMessages(data);
+      setDebug(data.length + ' msg carregadas');
+    }).catch(e => setDebug('erro: ' + e.message));
   }, []);
 
   useEffect(() => {
-    if (!socket) return;
-    const handler = (data) => setMessages(data || []);
+    if (!socket) { setDebug(d => d + ', sem socket'); return; }
+    const handler = (data) => { setMessages(data || []); setDebug((data?.length || 0) + ' msg via socket'); };
     socket.on('message-log-update', handler);
     return () => socket.off('message-log-update', handler);
   }, [socket]);
@@ -20,6 +25,7 @@ export default function MessageHistory({ socket }) {
     return (
       <div className="msg-history">
         <h4 className="side-title"><i className="fas fa-history"></i> Histórico de Mensagens</h4>
+        <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:4}}>🔍 {debug}</div>
         <div className="msg-empty">Nenhuma mensagem enviada ainda</div>
       </div>
     );
@@ -28,6 +34,7 @@ export default function MessageHistory({ socket }) {
   return (
     <div className="msg-history">
       <h4 className="side-title"><i className="fas fa-history"></i> Últimas Mensagens</h4>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:4}}>🔍 {debug}</div>
       <div className="msg-list">
         {messages.map(m => (
           <div key={m.id} className={`msg-item ${m.readAt ? 'lida' : 'pendente'}`}>
