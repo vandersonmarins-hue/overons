@@ -22,15 +22,15 @@ export default function CentralPage() {
   };
 
   const load = async () => {
-    try { const r = await fetch('/api/central/rastreamento'); if (r.ok) setData(await r.json()); } catch {}
+    try { const r = await fetch('http://localhost:3000/api/entregas'); if (r.ok) setData({ pedidos: await r.json(), resumo: { total: 0, emRota: 0, entregue: 0 } }); } catch {}
     setLoading(false);
   };
 
   useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
 
-  const statusIcon: Record<string, string> = { EM_SEPARACAO: '📦', SAIU_PARA_ENTREGA: '🚚', PROXIMO_CLIENTE: '📍', ENTREGUE: '✅' };
-  const statusColor: Record<string, string> = { EM_SEPARACAO: 'border-l-yellow-500', SAIU_PARA_ENTREGA: 'border-l-blue-500', PROXIMO_CLIENTE: 'border-l-green-500', ENTREGUE: 'border-l-gray-500' };
-  const statusLabel: Record<string, string> = { EM_SEPARACAO: '📦 Separação', SAIU_PARA_ENTREGA: '🚚 Em Rota', PROXIMO_CLIENTE: '📍 Próximo', ENTREGUE: '✅ Entregue' };
+  const statusLabel: Record<string, string> = { pendente: '⏳ Aguardando', AGUARDANDO_CONFIRMACAO: '⏳ Aguardando', aceita: '✅ Aceita', EM_SEPARACAO: '📦 Separação', SAIU_PARA_ENTREGA: '🚚 Em Rota', PROXIMO_CLIENTE: '📍 Próximo', concluida: '✅ Concluída', ENTREGUE: '✅ Entregue', recusada: '❌ Recusada' };
+  const statusIcon: Record<string, string> = { pendente: '⏳', AGUARDANDO_CONFIRMACAO: '⏳', aceita: '✅', EM_SEPARACAO: '📦', SAIU_PARA_ENTREGA: '🚚', PROXIMO_CLIENTE: '📍', concluida: '✅', ENTREGUE: '✅', recusada: '❌' };
+  const statusColor: Record<string, string> = { pendente: 'border-l-yellow-500', AGUARDANDO_CONFIRMACAO: 'border-l-yellow-500', aceita: 'border-l-green-500', EM_SEPARACAO: 'border-l-yellow-500', SAIU_PARA_ENTREGA: 'border-l-blue-500', PROXIMO_CLIENTE: 'border-l-green-500', concluida: 'border-l-gray-500', ENTREGUE: 'border-l-gray-500', recusada: 'border-l-red-500' };
 
   if (!autenticado) {
     return (
@@ -76,10 +76,10 @@ export default function CentralPage() {
             {/* Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               {[
-                { icon: '📦', label: 'Total', value: data?.resumo?.total || 0, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                { icon: '🚚', label: 'Em Rota', value: data?.resumo?.emRota || 0, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                { icon: '📍', label: 'Próximo', value: data?.resumo?.proximoCliente || 0, color: 'text-green-400', bg: 'bg-green-500/10' },
-                { icon: '✅', label: 'Entregues', value: data?.resumo?.entregue || 0, color: 'text-green-400', bg: 'bg-green-500/10' },
+                { icon: '📦', label: 'Total', value: data?.pedidos?.length || 0, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                { icon: '⏳', label: 'Pendentes', value: data?.pedidos?.filter((p:any) => p.status === 'pendente' || p.status === 'AGUARDANDO_CONFIRMACAO')?.length || 0, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+                { icon: '🚚', label: 'Em Andamento', value: data?.pedidos?.filter((p:any) => p.status === 'aceita' || p.status === 'SAIU_PARA_ENTREGA' || p.status === 'PROXIMO_CLIENTE')?.length || 0, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                { icon: '✅', label: 'Concluidas', value: data?.pedidos?.filter((p:any) => p.status === 'concluida' || p.status === 'ENTREGUE')?.length || 0, color: 'text-green-400', bg: 'bg-green-500/10' },
               ].map(c => (
                 <div key={c.label} className={`${c.bg} rounded-xl p-3 border border-white/10 text-center`}>
                   <div className={`text-lg ${c.color}`}>{c.icon}</div>
@@ -95,10 +95,10 @@ export default function CentralPage() {
                 <div key={p.pedidoId || p.id} onClick={() => setSelected(p)}
                   className={'cursor-pointer hover:bg-gray-800/80 transition-colors bg-gray-900/80 rounded-xl p-4 border border-white/10 border-l-4 ' + (statusColor[p.status] || 'border-l-yellow-500')}>
                   <div className="flex items-start justify-between mb-1">
-                    <span className="text-white font-bold text-sm truncate">{p.clienteNome || p.cliente || '—'}</span>
+                    <span className="text-white font-bold text-sm truncate">{p.cliente || p.clienteNome || '—'}</span>
                     <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{statusIcon[p.status] || '📋'}</span>
                   </div>
-                  <div className="text-gray-400 text-xs truncate mb-1">{p.enderecoCompleto || p.endereco || '—'}</div>
+                  <div className="text-gray-400 text-xs truncate mb-1">{p.endereco || p.enderecoCompleto || '—'}</div>
                   <div className="flex gap-2 text-xs text-gray-500">
                     {p.distanciaRestante > 0 && <span>🚚 {p.distanciaRestante.toFixed(1)}km</span>}
                     {p.tempoRestante > 0 && <span>⏱️ {p.tempoRestante}min</span>}
@@ -123,9 +123,9 @@ export default function CentralPage() {
             <div className="space-y-4">
               <div className="bg-gray-800/80 rounded-xl p-4">
                 <div className="text-gray-400 text-xs mb-1">Cliente</div>
-                <div className="text-white font-bold">{selected.clienteNome || selected.cliente || '—'}</div>
+                <div className="text-white font-bold">{selected.cliente || selected.clienteNome || '—'}</div>
                 <div className="text-gray-400 text-xs mt-2 mb-1">Endereço</div>
-                <div className="text-white text-sm">{selected.enderecoCompleto || selected.endereco || '—'}</div>
+                <div className="text-white text-sm">{selected.endereco || selected.enderecoCompleto || '—'}</div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
