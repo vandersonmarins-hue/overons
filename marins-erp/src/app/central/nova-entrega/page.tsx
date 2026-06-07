@@ -14,6 +14,10 @@ export default function NovaEntregaPage() {
   const [driverId, setDriverId] = useState("");
   const [tipoVeiculo, setTipoVeiculo] = useState("");
   const [precoViagem, setPrecoViagem] = useState("");
+  const [origem, setOrigem] = useState("");
+  const [distancia, setDistancia] = useState<number|null>(null);
+  const [tempo, setTempo] = useState<number|null>(null);
+  const [calculando, setCalculando] = useState(false);
   const [drivers, setDrivers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -48,6 +52,9 @@ export default function NovaEntregaPage() {
         body: JSON.stringify({
           cliente: cliente.trim(),
           endereco: endereco.trim(),
+          origem: origem || undefined,
+          distanciaKm: distancia || undefined,
+          tempoMin: tempo || undefined,
           observacoes: observacoes.trim(),
           produtos: produtos.filter(p => p.nome.trim()),
           tipoVeiculo: tipoVeiculo || undefined,
