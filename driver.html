@@ -884,9 +884,12 @@
                     var html = '';
                     for (var i = 0; i < entregas.length; i++) {
                         var e = entregas[i];
-                        html += '<div class="available-item">'
+                        var veiculoIcono = {moto:'🏍️',carro:'🚗',fiorino:'🚐',van:'🚐',truck:'🚛',caminhao:'🚛'};
+                    var veiculoLabel = {moto:'Moto',carro:'Carro',fiorino:'Fiorino',van:'Van',truck:'Truck',caminhao:'Caminhão'};
+                    html += '<div class="available-item">'
                             + '<div class="a-cliente">📦 ' + (e.cliente || 'Cliente') + '</div>'
                             + '<div class="a-endereco">📍 ' + (e.endereco || '') + '</div>'
+                            + (e.tipoVeiculo ? '<div style="font-size:11px;color:#888;margin-top:1px;">' + (veiculoIcono[e.tipoVeiculo] || '🚚') + ' Veículo: ' + (veiculoLabel[e.tipoVeiculo] || e.tipoVeiculo) + '</div>' : '')
                             + (e.valor > 0 ? '<div style="font-size:13px;font-weight:bold;color:#667eea;margin-top:2px;">💰 R$ ' + e.valor.toFixed(2) + '</div>' : '')
                             + '<div class="a-actions">'
                             + '<button class="btn-recusar" onclick="recusarEntrega(\'' + e.id + '\',this)">Recusar</button>'
