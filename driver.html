@@ -430,6 +430,7 @@
         // Dados do entregador
         const driverId = 'ENTREGADOR_' + Math.random().toString(36).substring(2, 8).toUpperCase();
         let driverName = localStorage.getItem('overons_driver_name') || '';
+        let driverTipo = localStorage.getItem('overons_driver_tipo') || 'autonomo'; // 'clt' ou 'autonomo'
         let isOnline = true;
         let trackingActive = false;
         let watchId = null;

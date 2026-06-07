@@ -5,6 +5,7 @@ import { Truck, Search, Eye, FileText, Download, ArrowLeft } from 'lucide-react'
 import Link from 'next/link';
 
 const VEICULO_ICON = { moto: '🏍️', carro: '🚗', fiorino: '🚐', van: '🚐', truck: '🚛', caminhao: '🚛' };
+const TIPO_CONTRATO: Record<string,string> = { clt: '👔 CLT', autonomo: '🚚 Autonomo' };
 const VEICULO_LABEL = { moto: 'Moto', carro: 'Carro', fiorino: 'Fiorino', van: 'Van', truck: 'Truck', caminhao: 'Caminhão' };
 
 export default function TransportadoresPage() {
@@ -112,7 +113,7 @@ export default function TransportadoresPage() {
                     <div>
                       <div className="text-white font-bold text-sm">{m.nome}</div>
                       <div className="text-gray-500 text-xs">
-                        {VEICULO_ICON[m.tipoVeiculo] || '🚚'} {VEICULO_LABEL[m.tipoVeiculo] || m.tipoVeiculo || '—'} · {m.cpf || '—'}
+                        {TIPO_CONTRATO[m.tipoContrato] || '🚚'} · {VEICULO_ICON[m.tipoVeiculo] || '🚚'} {VEICULO_LABEL[m.tipoVeiculo] || m.tipoVeiculo || '—'} · {m.cpf || '—'}
                       </div>
                     </div>
                   </div>

@@ -1013,7 +1013,7 @@ app.get('/api/entregas/pendentes', (req, res) => {
 
 // Cadastrar nova entrega e disparar para motoristas
 app.post('/api/entregas', (req, res) => {
-  const { cliente, endereco, observacoes, produtos, tipoVeiculo, driverId } = req.body;
+  const { cliente, endereco, observacoes, produtos, tipoVeiculo, precoViagem, driverId } = req.body;
   if (!cliente || !endereco) return res.status(400).json({ erro: 'Cliente e endereco obrigatorios' });
 
   const pedidoId = 'PED-' + Date.now().toString(36).toUpperCase();
@@ -1028,6 +1028,7 @@ app.post('/api/entregas', (req, res) => {
     produtos: produtos || [],
     observacoes: observacoes || '',
     tipoVeiculo: tipoVeiculo || '',
+    precoViagem: precoViagem || 0,
     status: 'pendente',
     criadaEm: new Date().toISOString(),
     entregadorId: driverId || '',

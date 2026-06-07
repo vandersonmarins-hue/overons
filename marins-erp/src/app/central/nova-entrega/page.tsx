@@ -12,6 +12,7 @@ export default function NovaEntregaPage() {
   const [saving, setSaving] = useState(false);
   const [driverId, setDriverId] = useState("");
   const [tipoVeiculo, setTipoVeiculo] = useState("");
+  const [precoViagem, setPrecoViagem] = useState("");
   const [drivers, setDrivers] = useState([]);
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function NovaEntregaPage() {
           observacoes: observacoes.trim(),
           produtos: produtos.filter(p => p.nome.trim()),
           tipoVeiculo: tipoVeiculo || undefined,
+          precoViagem: precoViagem ? parseFloat(precoViagem) : undefined,
           driverId: driverId || undefined,
         }),
       });
@@ -131,6 +133,14 @@ export default function NovaEntregaPage() {
           <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
             placeholder="Observacoes (opcional)" rows={2}
             className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
+          <div className="mb-3">
+            <label className="text-gray-400 text-xs mb-1 block">Preco da Viagem (R$) <span className="text-gray-600">(opcional - para motoristas autonomos)</span></label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
+              <input value={precoViagem} onChange={e => setPrecoViagem(e.target.value)} type="number" step="0.01" min="0" placeholder="0,00"
+                className="w-full bg-gray-800 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-lg text-white font-bold placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
+            </div>
+          </div>
           <div className="mb-3">
             <label className="text-gray-400 text-xs mb-1 block">Tipo de Veiculo Necessario</label>
             <select value={tipoVeiculo} onChange={e => setTipoVeiculo(e.target.value)}

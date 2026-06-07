@@ -17,6 +17,7 @@ export default function CadastroMotoristaPage() {
   const [tipoVeiculo, setTipoVeiculo] = useState("");
   const [docs, setDocs] = useState<string[]>([]);
   const [certidoes, setCertidoes] = useState<Record<string,boolean>>({});
+  const [tipoContrato, setTipoContrato] = useState("autonomo");
   const [saving, setSaving] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
 
@@ -32,7 +33,7 @@ export default function CadastroMotoristaPage() {
       const res = await fetch('/api/motoristas-cadastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, cpf, cnh, cnhCategoria, tipoVeiculo, telefone, email, endereco, dataNascimento, observacoes, documentos: docs }),
+        body: JSON.stringify({ nome, cpf, cnh, cnhCategoria, tipoVeiculo, tipoContrato, telefone, email, endereco, dataNascimento, observacoes, documentos: docs }),
       });
       const data = await res.json();
       if (data.success) setResultado(data);
@@ -79,6 +80,16 @@ export default function CadastroMotoristaPage() {
         {/* Dados Pessoais */}
         <div className="bg-gray-900/80 rounded-2xl p-5 border border-white/10">
           <h2 className="text-white font-bold text-sm mb-4">👤 Dados Pessoais</h2>
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <button onClick={() => setTipoContrato("clt")}
+              className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${tipoContrato === "clt" ? "bg-blue-600/20 border-blue-500/50 text-blue-400" : "bg-gray-800 border-white/10 text-gray-400 hover:bg-gray-700"}`}>
+              👔 CLT (Funcionário)
+            </button>
+            <button onClick={() => setTipoContrato("autonomo")}
+              className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${tipoContrato === "autonomo" ? "bg-blue-600/20 border-blue-500/50 text-blue-400" : "bg-gray-800 border-white/10 text-gray-400 hover:bg-gray-700"}`}>
+              🚚 Autônomo
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome completo" className="col-span-2 w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
             <input value={cpf} onChange={e => setCpf(mascaraCPF(e.target.value))} placeholder="CPF" maxLength={14} className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
