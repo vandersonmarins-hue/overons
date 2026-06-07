@@ -1,0 +1,3 @@
+.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
+.chart-card { background: var(--card-bg, #1e1e3a); border-radius: 12px; padding: 20px; border: 1px solid var(--border, #2a2a4a); }
+.chart-title { font-size: 14px; color: var(--text, #dfe6e9); margin-bottom: 12px; }

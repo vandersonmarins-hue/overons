@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -10,9 +11,24 @@ const path = require('path');
 // Middleware para JSON
 app.use(express.json());
 
-// Serve arquivos estaticos (HTML, CSS, JS) da raiz do projeto
+// CORS para React dev server
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
+// Serve arquivos estaticos
 app.use(express.static(path.join(__dirname, '..')));
 
+// ==================== DATABASE ====================
+const { db, migrate, seed } = require('./database');
+migrate();
+seed();
+
+// ==================== WEBSOCKET ====================
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -20,66 +36,471 @@ const io = new Server(server, {
   },
 });
 
-// ==================== ARMAZENAMENTO EM MEMORIA ====================
-const drivers = new Map();   // driverId -> { id, status, lastLat, lastLng, lastSeen, deliveriesCount, socketId }
-const deliveries = [];       // Array de entregas: { id, driverId, endereco, cliente, status, criadaEm, concluidaEm }
+// ==================== ARMAZENAMENTO EM MEMORIA (tempo real) ====================
+const drivers = new Map();
+const deliveries = [];
 
-// ==================== ROTAS REST API ====================
+// ==================== ROTAS PUBLICAS ====================
 
 app.get('/', (req, res) => {
-  res.send('Servidor de rastreamento de entregadores ativo!');
+  res.send('Overons API - Servidor de rastreamento de entregadores');
 });
 
-// Listar motoristas ativos
+// ==================== API: DASHBOARD KPIs ====================
+
+app.get('/api/kpis', (req, res) => {
+  try {
+    const hoje = new Date().toISOString().split('T')[0];
+    const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+    const entregasHoje = db.prepare("SELECT COUNT(*) as total FROM deliveries WHERE date(criada_em) = ? AND status = 'concluida'").get(hoje);
+    const entregasOntem = db.prepare("SELECT COUNT(*) as total FROM deliveries WHERE date(criada_em) = ? AND status = 'concluida'").get(ontem);
+    const totalHoje = db.prepare("SELECT COUNT(*) as total FROM deliveries WHERE date(criada_em) = ?").get(hoje);
+    const tempoMedio = db.prepare(`
+      SELECT AVG((julianday(horario_fim) - julianday(horario_inicio)) * 86400) as media 
+      FROM deliveries WHERE date(criada_em) = ? AND status = 'concluida' AND horario_fim IS NOT NULL
+    `).get(hoje);
+    const sucesso1a = db.prepare(`
+      SELECT 
+        (CAST(SUM(CASE WHEN tentativa_unica = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(*)) * 100 as taxa
+      FROM deliveries WHERE date(criada_em) = ? AND status = 'concluida'
+    `).get(hoje);
+    const consumoDia = db.prepare(`
+      SELECT 
+        CASE WHEN SUM(km_rodado_dia) > 0 
+          THEN SUM(km_rodado_dia) * 1.0 / NULLIF(SUM(custo_combustivel_dia), 0) 
+          ELSE 0 END as eficiencia
+      FROM vehicle_logs WHERE data = ?
+    `).get(hoje);
+    const motoristasOnline = db.prepare("SELECT COUNT(*) as total FROM entregadores WHERE status = 'online'").get();
+    const motoristasTotal = db.prepare("SELECT COUNT(*) as total FROM entregadores").get();
+    const emAndamento = db.prepare("SELECT COUNT(*) as total FROM deliveries WHERE status = 'em_andamento'").get();
+
+    // Calcular atrasos (mock)
+    const atrasados = db.prepare(`
+      SELECT COUNT(*) as total FROM deliveries 
+      WHERE date(criada_em) = ? AND status IN ('em_andamento','pendente')
+        AND horario_previsto < datetime('now')
+    `).get(hoje);
+
+    const kpis = {
+      entregasHoje: { valor: entregasHoje.total, vsOntem: entregasOntem.total > 0 ? ((entregasHoje.total - entregasOntem.total) / entregasOntem.total * 100).toFixed(1) : 0 },
+      taxaPontualidade: { valor: tempoMedio.media ? Math.max(0, Math.min(100, 100 - (tempoMedio.media / 3600 - 1) * 20)).toFixed(1) : 85 },
+      sucessoPrimeiraTentativa: { valor: sucesso1a.taxa ? sucesso1a.taxa.toFixed(1) : 82.5 },
+      eficienciaMedia: { valor: consumoDia.eficiencia ? consumoDia.eficiencia.toFixed(2) : '10.50' },
+      motoristasOnline: motoristasOnline.total,
+      motoristasTotal: motoristasTotal.total,
+      entregasEmAndamento: emAndamento.total,
+      entregasAtrasadas: atrasados.total,
+      totalHoje: totalHoje.total,
+    };
+    res.json(kpis);
+  } catch (err) {
+    console.error('Erro KPIs:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== API: RANKING ENTREGADORES ====================
+
+app.get('/api/ranking', (req, res) => {
+  try {
+    const hoje = new Date().toISOString().split('T')[0];
+    const ranking = db.prepare(`
+      SELECT 
+        e.id, e.nome, e.status,
+        COUNT(d.id) as entregas_hoje,
+        COALESCE(ROUND(AVG(CASE WHEN d.tentativa_unica = 1 THEN 100 ELSE 0 END), 1), 0) as sucesso_1a_tentativa,
+        COALESCE(ROUND(AVG(CASE WHEN d.horario_fim <= d.horario_previsto THEN 100 ELSE 0 END), 1), 0) as pontualidade,
+        COALESCE(ROUND(AVG(d.consumo_combustivel_litros), 2), 0) as consumo_medio,
+        COALESCE(ROUND(AVG(d.nota_cliente), 1), 0) as avaliacao_media
+      FROM entregadores e
+      LEFT JOIN deliveries d ON d.entregador_id = e.id AND date(d.criada_em) = ? AND d.status = 'concluida'
+      GROUP BY e.id
+      ORDER BY entregas_hoje DESC
+    `).all(hoje);
+    res.json(ranking);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== API: ALERTAS ====================
+
+app.get('/api/alerts', (req, res) => {
+  try {
+    const alerts = db.prepare(`
+      SELECT a.*, e.nome as entregador_nome 
+      FROM alerts a 
+      LEFT JOIN entregadores e ON a.entregador_id = e.id 
+      ORDER BY a.criada_em DESC LIMIT 30
+    `).all();
+    res.json(alerts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== API: HISTORICO DE ENTREGAS ====================
+
+app.get('/api/deliveries/history', (req, res) => {
+  try {
+    const { dias = 30, entregador_id, status } = req.query;
+    let sql = `SELECT d.*, e.nome as entregador_nome FROM deliveries d LEFT JOIN entregadores e ON d.entregador_id = e.id WHERE 1=1`;
+    const params = [];
+
+    if (dias) { sql += ` AND d.criada_em >= datetime('now', '-${parseInt(dias)} days')`; }
+    if (entregador_id) { sql += ` AND d.entregador_id = ?`; params.push(entregador_id); }
+    if (status) { sql += ` AND d.status = ?`; params.push(status); }
+
+    sql += ` ORDER BY d.criada_em DESC LIMIT 200`;
+    const data = db.prepare(sql).all(...params);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== API: GRAFICOS ====================
+
+app.get('/api/charts/km-por-dia', (req, res) => {
+  try {
+    const data = db.prepare(`
+      SELECT data, SUM(km_rodado_dia) as km_total, SUM(custo_combustivel_dia) as custo_total
+      FROM vehicle_logs GROUP BY data ORDER BY data ASC LIMIT 30
+    `).all();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/charts/eta-vs-realidade', (req, res) => {
+  try {
+    const data = db.prepare(`
+      SELECT date(criada_em) as dia,
+        AVG((julianday(horario_previsto) - julianday(criada_em)) * 1440) as eta_medio_min,
+        AVG((julianday(horario_fim) - julianday(horario_inicio)) * 1440) as tempo_real_min
+      FROM deliveries WHERE status = 'concluida' AND horario_fim IS NOT NULL
+      GROUP BY dia ORDER BY dia DESC LIMIT 15
+    `).all();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/charts/top-atrasos', (req, res) => {
+  try {
+    const data = db.prepare(`
+      SELECT e.nome, 
+        COUNT(*) as total_entregas,
+        SUM(CASE WHEN d.horario_fim > d.horario_previsto THEN 1 ELSE 0 END) as atrasos,
+        ROUND(AVG(CASE WHEN d.horario_fim > d.horario_previsto 
+          THEN (julianday(d.horario_fim) - julianday(d.horario_previsto)) * 1440 ELSE 0 END), 1) as atraso_medio_min
+      FROM deliveries d JOIN entregadores e ON d.entregador_id = e.id
+      WHERE d.status = 'concluida' AND d.horario_fim IS NOT NULL
+      GROUP BY e.id
+      ORDER BY atrasos DESC LIMIT 5
+    `).all();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== API: SCORECARDS (gamificacao) ====================
+
+app.get('/api/scorecards', (req, res) => {
+  try {
+    const data = db.prepare(`
+      SELECT s.*, e.nome FROM driver_scorecards s
+      JOIN entregadores e ON s.entregador_id = e.id
+      ORDER BY s.mes_ano DESC, s.score_geral DESC
+    `).all();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/top3', (req, res) => {
+  try {
+    const hoje = new Date();
+    const mesAno = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+    
+    const top3 = db.prepare(`
+      SELECT s.*, e.nome FROM driver_scorecards s
+      JOIN entregadores e ON s.entregador_id = e.id
+      WHERE s.mes_ano = ?
+      ORDER BY s.score_geral DESC LIMIT 3
+    `).all(mesAno);
+
+    const selos = ['🥇 Ouro', '🥈 Prata', '🥉 Bronze'];
+    const resultado = top3.map((t, i) => ({
+      ...t,
+      selo_nome: selos[i] || '',
+      posicao: i + 1,
+    }));
+
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== API: RELATORIOS ====================
+
+app.get('/api/reports/cpm', (req, res) => {
+  try {
+    const { data_inicio, data_fim } = req.query;
+    let sql = `SELECT 
+      SUM(custo_combustivel_dia) as custo_combustivel,
+      SUM(custo_manutencao_dia) as custo_manutencao,
+      SUM(km_rodado_dia) as km_total
+      FROM vehicle_logs WHERE 1=1`;
+    const params = [];
+    if (data_inicio) { sql += ` AND data >= ?`; params.push(data_inicio); }
+    if (data_fim) { sql += ` AND data <= ?`; params.push(data_fim); }
+    
+    const data = db.prepare(sql).get(...params);
+    const custoTotal = (data.custo_combustivel || 0) + (data.custo_manutencao || 0);
+    res.json({
+      ...data,
+      custo_total: custoTotal,
+      cpm: data.km_total > 0 ? (custoTotal / data.km_total).toFixed(4) : 0,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reports/ociosidade', (req, res) => {
+  try {
+    const { data_inicio, data_fim } = req.query;
+    let sql = `SELECT v.id, v.placa, v.modelo,
+      SUM(vl.tempo_ocioso_total_segundos) as tempo_ocioso_total,
+      SUM(vl.custo_combustivel_dia) as custo_combustivel
+      FROM vehicle_logs vl JOIN veiculos v ON vl.veiculo_id = v.id WHERE 1=1`;
+    const params = [];
+    if (data_inicio) { sql += ` AND vl.data >= ?`; params.push(data_inicio); }
+    if (data_fim) { sql += ` AND vl.data <= ?`; params.push(data_fim); }
+    sql += ` GROUP BY v.id`;
+    
+    const data = db.prepare(sql).all(...params);
+    // Custo estimado: 1h ocioso = ~0.7L de combustivel queimado
+    const resultado = data.map(d => ({
+      ...d,
+      horas_ociosas: (d.tempo_ocioso_total / 3600).toFixed(2),
+      custo_desperdicio: ((d.tempo_ocioso_total / 3600) * 0.7 * 5.89).toFixed(2),
+    }));
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reports/sucesso-rota', (req, res) => {
+  try {
+    const data = db.prepare(`
+      SELECT endereco,
+        COUNT(*) as total_tentativas,
+        SUM(CASE WHEN tentativa_unica = 1 THEN 1 ELSE 0 END) as sucessos_1a,
+        ROUND(CAST(SUM(CASE WHEN tentativa_unica = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(*) * 100, 1) as taxa_sucesso
+      FROM deliveries WHERE status = 'concluida'
+      GROUP BY endereco HAVING total_tentativas >= 3
+      ORDER BY taxa_sucesso ASC LIMIT 20
+    `).all();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reports/performance-temporal', (req, res) => {
+  try {
+    const data = db.prepare(`
+      SELECT strftime('%Y-%m', criada_em) as mes,
+        COUNT(*) as total_entregas,
+        ROUND(AVG(distancia_km), 1) as km_medio,
+        ROUND(AVG(tempo_total_segundos) / 60.0, 1) as tempo_medio_min
+      FROM deliveries WHERE status = 'concluida'
+      GROUP BY mes ORDER BY mes DESC LIMIT 12
+    `).all();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reports/carbono', (req, res) => {
+  try {
+    const data = db.prepare(`
+      SELECT strftime('%Y-%m', data) as mes,
+        SUM(km_rodado_dia) as km_total
+      FROM vehicle_logs GROUP BY mes ORDER BY mes DESC LIMIT 12
+    `).all();
+    
+    const FATOR_CO2 = 0.12; // kg CO2 por km (media leve)
+    const ARVORES_POR_MES = 21; // kg CO2 que uma arvore absorve por mes
+    
+    const resultado = data.map(d => ({
+      mes: d.mes,
+      km_total: d.km_total,
+      co2_kg: (d.km_total * FATOR_CO2).toFixed(2),
+      co2_toneladas: (d.km_total * FATOR_CO2 / 1000).toFixed(4),
+      arvores_equivalentes: (d.km_total * FATOR_CO2 / ARVORES_POR_MES).toFixed(1),
+    }));
+    
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== API: GEOFENCING ====================
+
+app.post('/api/geofence/check', (req, res) => {
+  const { entregador_id, delivery_id, lat, lng } = req.body;
+  if (!entregador_id || !delivery_id || !lat || !lng) {
+    return res.status(400).json({ error: 'Dados incompletos' });
+  }
+
+  try {
+    const delivery = db.prepare('SELECT * FROM deliveries WHERE id = ?').get(delivery_id);
+    if (!delivery) return res.status(404).json({ error: 'Entrega nao encontrada' });
+
+    if (!delivery.destino_lat || !delivery.destino_lng) {
+      return res.json({ dentro: false, distancia: null });
+    }
+
+    // Calcular distancia em km (Haversine simplificado)
+    const R = 6371;
+    const dLat = (delivery.destino_lat - lat) * Math.PI / 180;
+    const dLng = (delivery.destino_lng - lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat * Math.PI / 180) * Math.cos(delivery.destino_lat * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distanciaMetros = R * c * 1000;
+
+    const dentro = distanciaMetros <= 50; // Raio de 50m
+
+    if (dentro && !delivery.geofencing_entrada) {
+      db.prepare("UPDATE deliveries SET geofencing_entrada = datetime('now') WHERE id = ?").run(delivery_id);
+      
+      // Criar alerta
+      const ent = db.prepare('SELECT nome FROM entregadores WHERE id = ?').get(entregador_id);
+      db.prepare(`INSERT INTO alerts (id, tipo, entregador_id, mensagem, gravidade) VALUES (?, 'geofence', ?, ?, 'baixo')`)
+        .run(`GEOF_${Date.now()}`, entregador_id, `${ent.nome} entrou no raio de 50m do destino`);
+
+      io.emit('geofence-alert', { entregador_id, delivery_id, mensagem: `${ent.nome} chegou ao destino` });
+    }
+
+    res.json({ dentro: distanciaMetros <= 50, distancia_metros: Math.round(distanciaMetros * 10) / 10 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== API: LINK DE RASTREAMENTO ====================
+
+app.post('/api/tracking/generate', (req, res) => {
+  const { delivery_id } = req.body;
+  if (!delivery_id) return res.status(400).json({ error: 'delivery_id obrigatorio' });
+
+  try {
+    const delivery = db.prepare('SELECT * FROM deliveries WHERE id = ?').get(delivery_id);
+    if (!delivery) return res.status(404).json({ error: 'Entrega nao encontrada' });
+
+    const token = crypto.randomBytes(16).toString('hex');
+    db.prepare(`INSERT INTO tracking_sessions (id, delivery_id, token) VALUES (?, ?, ?)`)
+      .run(`TRK_${Date.now()}`, delivery_id, token);
+
+    const trackingUrl = `${req.protocol}://${req.get('host')}/track/${token}`;
+    db.prepare('UPDATE deliveries SET link_rastreamento = ? WHERE id = ?').run(trackingUrl, delivery_id);
+
+    res.json({ token, url: trackingUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pagina publica de rastreamento
+app.get('/track/:token', (req, res) => {
+  const session = db.prepare('SELECT ts.*, d.*, e.nome as entregador_nome FROM tracking_sessions ts JOIN deliveries d ON ts.delivery_id = d.id LEFT JOIN entregadores e ON d.entregador_id = e.id WHERE ts.token = ?').get(req.params.token);
+  
+  if (!session) {
+    return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rastreamento</title><style>body{font-family:Arial;text-align:center;padding:50px;background:#1a1a2e;color:#fff}h1{color:#e74c3c}</style></head><body><h1>❌ Link invalido</h1><p>Este link de rastreamento nao existe ou expirou.</p></body></html>`);
+  }
+
+  db.prepare("UPDATE tracking_sessions SET ultimo_acesso = datetime('now'), status = 'ativo' WHERE token = ?").run(req.params.token);
+
+  res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Rastreamento Overons</title>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#1a1a2e;color:#fff;padding:20px}.card{background:#16213e;border-radius:12px;padding:20px;margin-bottom:15px;max-width:600px;margin:0 auto}.status-bar{background:#00b894;padding:8px;text-align:center;border-radius:8px;margin-bottom:15px}h2{color:#00b894;margin-bottom:10px}p{margin:5px 0;font-size:14px;color:#dfe6e9}.label{color:#636e72;font-size:12px}#map{height:300px;border-radius:12px;margin-top:15px}</style>
+</head>
+<body>
+<div class="card">
+  <div class="status-bar">📦 Sua entrega esta a caminho!</div>
+  <h2>🚚 Rastreamento de Entrega</h2>
+  <p><span class="label">Entregador:</span> ${session.entregador_nome || 'Atribuindo...'}</p>
+  <p><span class="label">Destino:</span> ${session.endereco || '—'}</p>
+  <p><span class="label">Cliente:</span> ${session.cliente_nome || '—'}</p>
+  <p><span class="label">Status:</span> ${session.status === 'concluida' ? '✅ Entregue' : session.status === 'em_andamento' ? '🟡 A caminho' : '🟢 Pendente'}</p>
+  <div id="map"></div>
+</div>
+<script>
+  const map = L.map('map').setView([${session.destino_lat || -23.5505}, ${session.destino_lng || -46.6333}], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
+  ${session.destino_lat ? `L.marker([${session.destino_lat}, ${session.destino_lng}]).addTo(map).bindPopup('📍 Destino: ${session.endereco}').openPopup();` : ''}
+  L.circle([${session.destino_lat || -23.5505}, ${session.destino_lng || -46.6333}], {color:'#00b894',fillColor:'#00b894',fillOpacity:0.1,radius:50}).addTo(map);
+</script>
+</body></html>`);
+});
+
+// ==================== API: MOTORISTAS (SQLite) ====================
+
+app.get('/api/entregadores', (req, res) => {
+  try {
+    const data = db.prepare('SELECT * FROM entregadores ORDER BY nome').all();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/veiculos', (req, res) => {
+  try {
+    const data = db.prepare('SELECT * FROM veiculos ORDER BY placa').all();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== EXISTING API (JSON persistence) ====================
+
 app.get('/api/drivers', (req, res) => {
   const lista = [];
   for (const [id, info] of drivers) {
-    lista.push({
-      id,
-      status: info.status,
-      latitude: info.lastLat,
-      longitude: info.lastLng,
-      ultimaAtualizacao: info.lastSeen,
-      entregasHoje: info.deliveriesCount,
-    });
+    lista.push({ id, nome: info.nome || '', status: info.status, latitude: info.lastLat, longitude: info.lastLng, ultimaAtualizacao: info.lastSeen, entregasHoje: info.deliveriesCount });
   }
   res.json(lista);
 });
 
-// Listar histórico de entregas
-app.get('/api/deliveries', (req, res) => {
-  res.json(deliveries.slice(-50).reverse()); // ultimas 50
-});
-
-// Exportar banco de dados completo (JSON)
 app.get('/api/data', (req, res) => {
-  const db = {
-    exportadoEm: new Date().toISOString(),
-    totalMotoristas: drivers.size,
-    totalEntregas: deliveries.length,
-    motoristas: getDriversList(),
-    entregas: deliveries.slice().reverse(),
-  };
-  res.json(db);
+  res.json({ exportadoEm: new Date().toISOString(), totalMotoristas: drivers.size, totalEntregas: deliveries.length, motoristas: getDriversList(), entregas: deliveries.slice().reverse() });
 });
 
-// Exportar entregas como CSV
 app.get('/api/data/csv', (req, res) => {
   const BOM = '\uFEFF';
   const header = 'ID,ID Motorista,Endereco,Cliente,Valor,Status,Criada Em,Concluida Em';
-  const rows = deliveries.map(d => {
-    const c = (s) => `"${(s || '').replace(/"/g, '""')}"`;
-    return [
-      c(d.id),
-      c(d.driverId),
-      c(d.endereco),
-      c(d.cliente),
-      d.valor || 0,
-      c(d.status),
-      c(d.criadaEm),
-      c(d.concluidaEm || ''),
-    ].join(',');
-  });
+  const rows = deliveries.map(d => { const c = (s) => `"${(s || '').replace(/"/g, '""')}"`; return [c(d.id), c(d.driverId), c(d.endereco), c(d.cliente), d.valor || 0, c(d.status), c(d.criadaEm), c(d.concluidaEm || '')].join(','); });
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename=overons_entregas.csv');
   res.send(BOM + header + '\n' + rows.join('\n'));
@@ -90,179 +511,65 @@ app.get('/api/data/csv', (req, res) => {
 io.on('connection', (socket) => {
   console.log(`Cliente conectado: ${socket.id}`);
 
-  // Registrar motorista
   socket.on('driver-register', (data) => {
     if (!data || !data.driverId) return;
-    console.log(`Motorista registrado: ${data.driverId} (${data.nome || 'sem nome'})`);
-
     if (!drivers.has(data.driverId)) {
-      drivers.set(data.driverId, {
-        id: data.driverId,
-        nome: data.nome || '',
-        status: data.status || 'online',
-        lastLat: null,
-        lastLng: null,
-        lastSeen: new Date().toISOString(),
-        deliveriesCount: 0,
-        socketId: socket.id,
-      });
+      drivers.set(data.driverId, { id: data.driverId, nome: data.nome || '', status: data.status || 'online', lastLat: null, lastLng: null, lastSeen: new Date().toISOString(), deliveriesCount: 0, socketId: socket.id });
     } else {
-      const d = drivers.get(data.driverId);
-      d.status = data.status || d.status;
-      d.socketId = socket.id;
-      d.lastSeen = new Date().toISOString();
-      if (data.nome) d.nome = data.nome;
+      const d = drivers.get(data.driverId); d.status = data.status || d.status; d.socketId = socket.id; d.lastSeen = new Date().toISOString(); if (data.nome) d.nome = data.nome;
     }
-
     io.emit('drivers-update', getDriversList());
   });
 
-  // Atualizar status (online/offline)
   socket.on('driver-status', (data) => {
     if (!data || !data.driverId) return;
     const d = drivers.get(data.driverId);
-    if (d) {
-      d.status = data.status;
-      d.lastSeen = new Date().toISOString();
-      io.emit('drivers-update', getDriversList());
-    }
+    if (d) { d.status = data.status; d.lastSeen = new Date().toISOString(); io.emit('drivers-update', getDriversList()); }
   });
 
-  // Receber localizacao do motorista
   socket.on('driver-location', (data) => {
-    if (!data || !data.driverId || !data.latitude || !data.longitude) {
-      console.warn('Dados inválidos:', data);
-      return;
-    }
-
-    // Atualizar dados do motorista
+    if (!data || !data.driverId || !data.latitude || !data.longitude) return;
     const isNew = !drivers.has(data.driverId);
-    
     const existingNome = !isNew ? drivers.get(data.driverId).nome : '';
-    drivers.set(data.driverId, {
-      id: data.driverId,
-      nome: existingNome || data.nome || '',
-      status: 'online',
-      lastLat: data.latitude,
-      lastLng: data.longitude,
-      lastSeen: new Date().toISOString(),
-      deliveriesCount: isNew ? 0 : (drivers.get(data.driverId).deliveriesCount || 0),
-      socketId: socket.id,
-    });
-    
-    // Sempre notificar o dashboard sobre a atualizacao
+    drivers.set(data.driverId, { id: data.driverId, nome: existingNome || data.nome || '', status: 'online', lastLat: data.latitude, lastLng: data.longitude, lastSeen: new Date().toISOString(), deliveriesCount: isNew ? 0 : (drivers.get(data.driverId).deliveriesCount || 0), socketId: socket.id });
     io.emit('drivers-update', getDriversList());
     salvarDados();
-
-    const locationData = {
-      driverId: data.driverId,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      timestamp: data.timestamp || new Date().toISOString(),
-    };
-
-    io.emit('location-update', locationData);
+    io.emit('location-update', { driverId: data.driverId, latitude: data.latitude, longitude: data.longitude, timestamp: data.timestamp || new Date().toISOString() });
   });
 
-  // Entrega concluida
   socket.on('delivery-completed', (data) => {
     if (!data || !data.driverId) return;
-
-    const entrega = {
-      id: Date.now().toString(),
-      driverId: data.driverId,
-      nomeMotorista: data.nome || '',
-      endereco: data.endereco || 'Nao informado',
-      cliente: data.cliente || 'Nao informado',
-      valor: data.valor || 0,
-      status: 'concluida',
-      criadaEm: data.timestamp || new Date().toISOString(),
-      concluidaEm: new Date().toISOString(),
-    };
-
+    const entrega = { id: Date.now().toString(), driverId: data.driverId, nomeMotorista: data.nome || '', endereco: data.endereco || 'Nao informado', cliente: data.cliente || 'Nao informado', valor: data.valor || 0, status: 'concluida', criadaEm: data.timestamp || new Date().toISOString(), concluidaEm: new Date().toISOString() };
     deliveries.push(entrega);
-
-    // Atualizar contagem do motorista
     const d = drivers.get(data.driverId);
-    if (d) {
-      d.deliveriesCount = (d.deliveriesCount || 0) + 1;
-      io.emit('drivers-update', getDriversList());
-    }
-
-    io.emit('new-delivery-log', entrega);
-    salvarDados();
-    console.log(`Entrega concluida: ${data.driverId} - R$ ${data.valor}`);
+    if (d) { d.deliveriesCount = (d.deliveriesCount || 0) + 1; io.emit('drivers-update', getDriversList()); }
+    io.emit('new-delivery-log', entrega); salvarDados();
   });
 
-  // Gestor atribui nova entrega a um motorista
   socket.on('assign-delivery', (data) => {
     if (!data || !data.driverId || !data.endereco) return;
-
-    const novaEntrega = {
-      id: Date.now().toString(),
-      driverId: data.driverId,
-      endereco: data.endereco,
-      cliente: data.cliente || 'Nao informado',
-      valor: data.valor || 0,
-      status: 'atribuida',
-      criadaEm: new Date().toISOString(),
-      concluidaEm: null,
-    };
-
+    const novaEntrega = { id: Date.now().toString(), driverId: data.driverId, endereco: data.endereco, cliente: data.cliente || 'Nao informado', valor: data.valor || 0, status: 'atribuida', criadaEm: new Date().toISOString(), concluidaEm: null };
     deliveries.push(novaEntrega);
-
-    // Enviar para o motorista especifico
     const d = drivers.get(data.driverId);
-    if (d) {
-      io.to(d.socketId).emit('new-delivery', {
-        id: novaEntrega.id,
-        endereco: data.endereco,
-        cliente: data.cliente,
-        valor: data.valor,
-      });
-    }
-
-    io.emit('new-delivery-log', novaEntrega);
-    io.emit('drivers-update', getDriversList());
-    salvarDados();
-    console.log(`Entrega atribuida a ${data.driverId}: ${data.endereco}`);
+    if (d) io.to(d.socketId).emit('new-delivery', { id: novaEntrega.id, endereco: data.endereco, cliente: data.cliente, valor: data.valor });
+    io.emit('new-delivery-log', novaEntrega); io.emit('drivers-update', getDriversList()); salvarDados();
   });
 
-  // Desconexao
   socket.on('disconnect', () => {
-    console.log(`Cliente desconectado: ${socket.id}`);
-
-    // Marcar motorista como offline
     for (const [id, d] of drivers) {
-      if (d.socketId === socket.id) {
-        d.status = 'offline';
-        d.lastSeen = new Date().toISOString();
-        io.emit('drivers-update', getDriversList());
-        break;
-      }
+      if (d.socketId === socket.id) { d.status = 'offline'; d.lastSeen = new Date().toISOString(); io.emit('drivers-update', getDriversList()); break; }
     }
   });
 });
 
-// ==================== HELPERS ====================
-
 function getDriversList() {
   const lista = [];
-  for (const [id, info] of drivers) {
-    lista.push({
-      id,
-      nome: info.nome || '',
-      status: info.status,
-      latitude: info.lastLat,
-      longitude: info.lastLng,
-      ultimaAtualizacao: info.lastSeen,
-      entregasHoje: info.deliveriesCount,
-    });
-  }
+  for (const [id, info] of drivers) lista.push({ id, nome: info.nome || '', status: info.status, latitude: info.lastLat, longitude: info.lastLng, ultimaAtualizacao: info.lastSeen, entregasHoje: info.deliveriesCount });
   return lista;
 }
 
-// ==================== PERSISTENCIA EM ARQUIVO ====================
+// ==================== PERSISTENCIA ====================
+
 const DATA_FILE = path.join(__dirname, '..', 'data.json');
 
 function carregarDados() {
@@ -270,39 +577,39 @@ function carregarDados() {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, 'utf8');
       const dados = JSON.parse(raw);
-      if (dados.drivers) {
-        for (const d of dados.drivers) {
-          drivers.set(d.id, d);
-        }
-      }
-      if (dados.deliveries) {
-        deliveries.push(...dados.deliveries);
-      }
+      if (dados.drivers) for (const d of dados.drivers) drivers.set(d.id, d);
+      if (dados.deliveries) deliveries.push(...dados.deliveries);
       console.log(`📂 Dados carregados: ${drivers.size} motoristas, ${deliveries.length} entregas`);
     }
-  } catch (err) {
-    console.error('Erro ao carregar dados:', err.message);
-  }
+  } catch (err) { console.error('Erro ao carregar dados:', err.message); }
 }
 
 function salvarDados() {
-  try {
-    const dados = {
-      ultimoSalvamento: new Date().toISOString(),
-      drivers: Array.from(drivers.values()),
-      deliveries: deliveries,
-    };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(dados, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Erro ao salvar dados:', err.message);
-  }
+  try { fs.writeFileSync(DATA_FILE, JSON.stringify({ ultimoSalvamento: new Date().toISOString(), drivers: Array.from(drivers.values()), deliveries }, null, 2), 'utf8'); }
+  catch (err) { console.error('Erro ao salvar dados:', err.message); }
 }
 
-// Salvar a cada 30 segundos e tambem ao encerrar
 setInterval(salvarDados, 30000);
-
 process.on('SIGINT', () => { salvarDados(); process.exit(); });
 process.on('SIGTERM', () => { salvarDados(); process.exit(); });
+
+// ==================== SERVE REACT BUILD ====================
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(frontendDist)) {
+  // Serve assets do React (prioridade maior, antes do static raiz)
+  app.use('/assets', express.static(path.join(frontendDist, 'assets')));
+  
+  // Redireciona /dashboard para o React via /react
+  app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+  
+  console.log(`📦 React build sendo servido de: ${frontendDist}`);
+  console.log(`   🆕 Dashboard disponivel na rota /dashboard`);
+} else {
+  console.log(`⚠️  React build nao encontrado em ${frontendDist}`);
+  console.log(`   Rode: cd frontend && npm run build`);
+}
 
 // ==================== INICIALIZACAO ====================
 
@@ -311,7 +618,8 @@ const PORT = process.env.PORT || 3000;
 carregarDados();
 
 server.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard.html`);
-  console.log(`📁 Dados salvos em: ${DATA_FILE}`);
+  console.log(`🚀 Overons API rodando na porta ${PORT}`);
+  console.log(`📊 Dashboard Antigo: http://localhost:${PORT}/dashboard.html`);
+  console.log(`🆕 Dashboard React: http://localhost:${PORT}/dashboard`);
+  console.log(`✅ APIs disponiveis em /api/*`);
 });

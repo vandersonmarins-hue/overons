@@ -1,0 +1,15 @@
+.ranking-wrap { overflow-x: auto; }
+.ranking-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ranking-table th {
+  text-align: left; padding: 10px 8px;
+  color: var(--accent, #00b894); font-size: 12px;
+  border-bottom: 2px solid var(--border, #2a2a4a);
+  white-space: nowrap;
+}
+.ranking-table td { padding: 10px 8px; border-bottom: 1px solid var(--border, #1a1a3a); color: var(--text, #dfe6e9); }
+.ranking-table tr:hover td { background: rgba(255,255,255,0.03); }
+.rank-num { font-weight: bold; color: var(--accent, #00b894); width: 30px; }
+.ponto-badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; }
+.ponto-badge.verde { background: #00b89422; color: #00b894; }
+.ponto-badge.amarelo { background: #fdcb6e22; color: #fdcb6e; }
+.ponto-badge.vermelho { background: #d6303122; color: #d63031; }

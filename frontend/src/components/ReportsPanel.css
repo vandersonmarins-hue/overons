@@ -1,0 +1,31 @@
+.reports-container { display: flex; gap: 20px; min-height: 400px; }
+.reports-sidebar { flex: 0 0 220px; display: flex; flex-direction: column; gap: 6px; }
+.reports-sidebar h4 { color: var(--accent, #00b894); font-size: 14px; margin-bottom: 8px; }
+.report-btn {
+  text-align: left; padding: 10px 14px; border: none; border-radius: 8px;
+  background: var(--card-bg, #1e1e3a); color: var(--text, #dfe6e9);
+  font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.report-btn:hover { background: var(--border, #2a2a4a); }
+.report-btn.active { background: var(--accent, #00b894); color: #fff; }
+.reports-content { flex: 1; display: flex; flex-direction: column; }
+.reports-toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+.report-select {
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border, #2a2a4a);
+  background: var(--card-bg, #1e1e3a); color: var(--text, #dfe6e9); font-size: 13px;
+}
+.btn-export {
+  padding: 8px 16px; border: none; border-radius: 8px;
+  background: var(--accent, #00b894); color: #fff; font-size: 13px; cursor: pointer;
+}
+.report-data { flex: 1; }
+.report-loading, .report-empty { color: var(--text-muted, #636e72); text-align: center; padding: 40px; }
+.report-table-wrap { overflow-x: auto; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.report-table th { text-align: left; padding: 8px; color: var(--accent, #00b894); border-bottom: 2px solid var(--border, #2a2a4a); font-size: 12px; }
+.report-table td { padding: 8px; border-bottom: 1px solid var(--border, #1a1a3a); color: var(--text, #dfe6e9); }
+.report-carbon { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+.carbon-card { background: var(--card-bg, #1e1e3a); border-radius: 12px; padding: 24px; text-align: center; border: 1px solid var(--border, #2a2a4a); }
+.carbon-num { font-size: 32px; font-weight: bold; color: var(--accent, #00b894); }
+.carbon-label { font-size: 13px; color: var(--text-muted, #888); margin-top: 4px; }
+.up { color: #00b894; } .down { color: #d63031; }

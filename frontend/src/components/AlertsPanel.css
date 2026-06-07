@@ -1,0 +1,15 @@
+.alerts-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.alert-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card-bg, #1e1e3a); padding: 10px 14px;
+  border-radius: 8px; font-size: 13px;
+  border-left: 3px solid var(--accent, #00b894);
+}
+.alert-item.critico { border-left-color: #d63031; }
+.alert-item.alto { border-left-color: #e17055; }
+.alert-item.medio { border-left-color: #fdcb6e; }
+.alert-item.baixo { border-left-color: #00b894; }
+.alert-icon { font-size: 18px; }
+.alert-msg { flex: 1; color: var(--text, #dfe6e9); }
+.alert-time { font-size: 11px; color: var(--text-muted, #636e72); white-space: nowrap; }
+.alerts-empty { color: var(--text-muted, #636e72); text-align: center; padding: 20px; }
