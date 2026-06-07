@@ -51,8 +51,15 @@ export default function HeatMap({ drivers, deliveryLog }) {
       zoomControl: false,
       attributionControl: false,
     }).setView([-23.5505, -46.6333], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
+    // CartoDB Voyager - mostra construcoes em detalhe ao aproximar
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>, &copy; CARTO'
+    }).addTo(mapInstance.current);
+    
+    // Camada adicional de labels para dar ainda mais detalhes
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20,
     }).addTo(mapInstance.current);
     L.control.zoom({ position: 'bottomright' }).addTo(mapInstance.current);
     L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(mapInstance.current);
