@@ -670,8 +670,13 @@ io.on('connection', (socket) => {
 
   // Empresa envia mensagem para o motorista
   socket.on('send-message', (data) => {
-    if (!data || !data.driverId || !data.message) return;
+    console.log('📨 send-message recebido:', JSON.stringify(data));
+    if (!data || !data.driverId || !data.message) {
+      console.log('❌ send-message: dados invalidos');
+      return;
+    }
     const d = drivers.get(data.driverId);
+    console.log('🔍 Motorista encontrado:', d ? d.nome || d.id : 'NAO ENCONTRADO', 'socketId:', d?.socketId);
     if (d && d.socketId) {
       io.to(d.socketId).emit('new-message', {
         type: data.type || 'text',
@@ -680,7 +685,9 @@ io.on('connection', (socket) => {
         empresa: data.empresa || 'Empresa',
         timestamp: new Date().toISOString(),
       });
-      console.log(`📨 Mensagem enviada para ${data.driverId}`);
+      console.log(`✅ Mensagem enviada via socket ${d.socketId}`);
+    } else {
+      console.log('❌ Motorista sem socket conectado');
     }
   });
 
