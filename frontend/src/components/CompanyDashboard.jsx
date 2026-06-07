@@ -13,6 +13,7 @@ import ReportsPanel from './ReportsPanel';
 import AdminPanel from './AdminPanel';
 import MessageSender from './MessageSender';
 import MessageHistory from './MessageHistory';
+import CentralMonitor from './CentralMonitor';
 import './CompanyDashboard.css';
 
 const ADMIN_KEY = 'overons_admin';
@@ -175,6 +176,11 @@ export default function CompanyDashboard() {
             onClick={() => openSection('messages')}>
             <i className="fas fa-comment-dots"></i> Mensagens
           </button>
+          <button className={`side-btn ${section === 'central' ? 'active' : ''}`}
+            onClick={() => openSection('central')}
+            style={{borderTop:'2px solid #0984e3',marginTop:4}}>
+            <i className="fas fa-tv"></i> Central
+          </button>
           {adminMode && (
             <button className={`side-btn ${section === 'admin' ? 'active' : ''}`}
               onClick={() => openSection('admin')}
@@ -193,7 +199,7 @@ export default function CompanyDashboard() {
           )}
           {section === 'deliveries' && (
             <div className="side-section">
-              <DeliveryPanel deliveryLog={deliveryLog} />
+              <DeliveryPanel deliveryLog={deliveryLog} socket={socket} />
             </div>
           )}
           {section === 'ranking' && (
@@ -225,6 +231,11 @@ export default function CompanyDashboard() {
               <MessageSender socket={socket} drivers={drivers} />
               <hr style={{border:'none',borderTop:'1px solid var(--border)',margin:'20px 0 12px'}}/>
               <MessageHistory socket={socket} />
+            </div>
+          )}
+          {section === 'central' && (
+            <div className="side-section">
+              <CentralMonitor />
             </div>
           )}
           {section === 'admin' && (

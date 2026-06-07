@@ -1,0 +1,9 @@
+.central-monitor { padding: 0; }
+.central-card { background: var(--card-bg); border-radius: 8px; padding: 12px; text-align: center; border: 1px solid var(--border); }
+.central-num { display: block; font-size: 20px; font-weight: bold; color: var(--text); }
+.central-label { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.central-item { background: var(--card-bg); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; border: 1px solid var(--border); border-left: 3px solid var(--accent); }
+.central-cliente { font-weight: bold; font-size: 13px; color: var(--text); }
+.central-status { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(0,184,148,0.1); color: var(--accent); white-space: nowrap; }
+.central-endereco { font-size: 12px; color: var(--text-muted); }
+.central-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px; }
