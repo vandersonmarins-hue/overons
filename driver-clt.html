@@ -505,7 +505,8 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
         // ==================== CONEXAO COM O SERVIDOR ====================
-        const socket = io();
+        var socket = io();
+        window.socket = socket; // Para acesso de onclick no HTML
         socket.on('connect', () => {
             console.log('CLT conectado ao servidor');
             socket.emit('driver-register', { driverId, status: 'online' });
@@ -876,7 +877,8 @@
             p.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);';
             const b = document.createElement('div');
             b.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:24px;padding:40px 32px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
-            b.innerHTML = '<div style="font-size:48px;margin-bottom:12px;">📢</div><div style="font-size:13px;opacity:0.8;margin-bottom:4px;">' + (msg.empresa || 'Empresa') + '</div><div style="font-size:18px;font-weight:bold;margin-bottom:16px;">' + msg.message + '</div><button onclick="this.closest(\'#popup-empresa\').remove()" style="padding:12px 32px;border:none;border-radius:12px;background:#fff;color:#667eea;font-size:16px;font-weight:bold;cursor:pointer;">OK ✓</button>';
+            var mid = msg.id || '';
+        b.innerHTML = '<div style="font-size:48px;margin-bottom:12px;">📢</div><div style="font-size:13px;opacity:0.8;margin-bottom:4px;">' + (msg.empresa || 'Empresa') + '</div><div style="font-size:18px;font-weight:bold;margin-bottom:16px;">' + msg.message + '</div><button onclick="this.closest(\'#popup-empresa\').remove();try{window.socket.emit(\'message-read\',{messageId:\'' + mid + '\'})}catch(e){}" style="padding:12px 32px;border:none;border-radius:12px;background:#fff;color:#667eea;font-size:16px;font-weight:bold;cursor:pointer;">OK ✓</button>';
             p.appendChild(b);
             document.body.appendChild(p);
             try {

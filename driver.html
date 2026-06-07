@@ -409,7 +409,8 @@
         let isOnline = true;
         let trackingActive = false;
         let watchId = null;
-        let socket = null;
+        var socket = null;
+        window.socket = socket; // Atualizado quando conectar
         let todayDeliveries = [];
         let todayEarnings = 0;
         const DAILY_GOAL = 150;
@@ -714,7 +715,8 @@
         
         // Conectar ao servidor
         function connectSocket() {
-            socket = io(); // Conecta ao mesmo host do servidor
+            socket = io();
+            window.socket = socket; // Para onclick no HTML
             
             socket.on('connect', () => {
                 console.log('Conectado ao servidor');
