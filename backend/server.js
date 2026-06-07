@@ -1127,7 +1127,7 @@ app.get('/api/drivers-status', (req, res) => {
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendDist)) {
   // Serve assets do React
-  app.use('/assets', express.static(path.join(frontendDist, 'assets')));
+  app.use('/assets', express.static(path.join(frontendDist, 'assets'), { maxAge: 0, etag: false, lastModified: false }));
   app.get('/favicon.svg', (req, res) => res.sendFile(path.join(frontendDist, 'favicon.svg')));
   
   // Dashboard React
