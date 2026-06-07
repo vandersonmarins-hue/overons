@@ -568,52 +568,44 @@
         // Popup chamativo de mensagem da empresa (SIMPLIFICADO - SEM ERRO)
         function mostrarPopupEmpresa(msg) {
             try {
-                // Remove popup anterior se existir
                 var old = document.getElementById('popup-empresa');
                 if (old) old.remove();
                 
-                // Cria o fundo escuro
-                var popup = document.createElement('div');
-                popup.id = 'popup-empresa';
-                popup.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);';
+                // Overlay fullscreen
+                var p = document.createElement('div');
+                p.id = 'popup-empresa';
+                p.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:999999;';
                 
-                // Cria a caixa de mensagem
-                var box = document.createElement('div');
-                box.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:24px;padding:40px 32px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+                // Card da mensagem
+                var b = document.createElement('div');
+                b.style.cssText = 'background:#667eea;color:white;border-radius:16px;padding:30px 24px;max-width:340px;width:88%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.4);';
                 
-                // Monta o HTML
-                var html = '<div style="font-size:48px;margin-bottom:12px;">📢</div>';
-                html += '<div style="font-size:13px;opacity:0.8;margin-bottom:4px;">' + (msg.empresa || 'Empresa') + '</div>';
-                html += '<div style="font-size:18px;font-weight:bold;margin-bottom:16px;line-height:1.4;">' + msg.message + '</div>';
-                html += '<button id="btn-ok-popup" style="padding:12px 32px;border:none;border-radius:12px;background:#fff;color:#667eea;font-size:16px;font-weight:bold;cursor:pointer;min-width:120px;margin-top:12px;">OK ✓</button>';
+                b.innerHTML = '<div style="font-size:40px;margin-bottom:8px;">📢</div>'
+                    + '<div style="font-size:12px;opacity:0.8;margin-bottom:2px;">' + (msg.empresa || 'Empresa') + '</div>'
+                    + '<div style="font-size:17px;font-weight:bold;margin-bottom:14px;line-height:1.4;">' + msg.message + '</div>'
+                    + '<button id="btn-ok-popup" style="padding:10px 30px;border:none;border-radius:10px;background:white;color:#667eea;font-size:15px;font-weight:bold;cursor:pointer;">OK ✓</button>';
                 
-                box.innerHTML = html;
-                // Adiciona evento de clique ao botao OK (depois do innerHTML)
-                var btnOk = box.querySelector('#btn-ok-popup');
-                if (btnOk) {
-                    btnOk.onclick = function() {
-                        popup.remove();
-                        try { if (window.socket && msg.id) window.socket.emit('message-read', { messageId: msg.id }); } catch(e) { console.error('Erro confirmacao:', e); }
+                p.appendChild(b);
+                document.body.appendChild(p);
+                
+                // Evento do botao OK
+                setTimeout(function() {
+                    var btn = document.getElementById('btn-ok-popup');
+                    if (btn) btn.onclick = function() {
+                        p.remove();
+                        if (window.socket && msg.id) window.socket.emit('message-read', { messageId: msg.id });
                     };
-                }
-                popup.appendChild(box);
-                document.body.appendChild(popup);
+                }, 50);
                 
-                // Beep sonoro
+                // Beep
                 try {
-                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    var osc = ctx.createOscillator();
-                    osc.type = 'sine'; osc.frequency.value = 800;
-                    var gain = ctx.createGain(); gain.gain.value = 0.3;
-                    osc.connect(gain); gain.connect(ctx.destination);
-                    osc.start();
-                    setTimeout(function() { osc.stop(); ctx.close(); }, 500);
+                    var ctx = new(window.AudioContext || window.webkitAudioContext)();
+                    var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 800;
+                    var g = ctx.createGain(); g.gain.value = 0.3;
+                    o.connect(g); g.connect(ctx.destination);
+                    o.start(); setTimeout(function(){ o.stop(); ctx.close(); }, 500);
                 } catch(e) {}
-                
-                console.log('📢 POPUP EXIBIDO:', msg.message);
             } catch(e) {
-                console.error('❌ ERRO no popup:', e);
-                // Fallback: alert simples
                 alert('📢 ' + msg.empresa + ': ' + msg.message);
             }
         }
