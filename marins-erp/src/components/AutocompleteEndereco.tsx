@@ -23,7 +23,7 @@ export default function AutocompleteEndereco({ value, onChange, onSelect, placeh
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
   const [aberto, setAberto] = useState(false);
   const [loading, setLoading] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<NodeJS.Timeout>(undefined);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

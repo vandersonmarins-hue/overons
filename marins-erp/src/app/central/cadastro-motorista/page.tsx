@@ -100,7 +100,7 @@ export default function CadastroMotoristaPage() {
             <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
             <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
           </div>
-          <AutocompleteEndereco value={endereco} onChange={setEndereco} placeholder="Endereco" className="mb-3" /> className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-blue-500/50" />
+          <AutocompleteEndereco value={endereco} onChange={setEndereco} placeholder="Endereco" className="mb-3" />
         </div>
 
         {/* CNH */}

@@ -117,7 +117,6 @@ export default function CadastroClientePage() {
           </div>
 
           <AutocompleteEndereco value={endereco} onChange={setEndereco} placeholder="Endereco" className="mb-3" />
-            className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-blue-500/50" />
 
           {tipo === 'juridica' && (
             <input value={contatoNome} onChange={e => setContatoNome(e.target.value)} placeholder="Nome do contato na empresa"
