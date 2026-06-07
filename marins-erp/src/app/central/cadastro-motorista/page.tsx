@@ -129,6 +129,36 @@ export default function CadastroMotoristaPage() {
           ))}
         </div>
 
+                {/* Certidoes e Exames */}
+        <div className="bg-gray-900/80 rounded-2xl p-5 border border-white/10">
+          <h2 className="text-white font-bold text-sm mb-4">📋 Certidões e Exames</h2>
+          <div className="space-y-3">
+            {[
+              {id:"aso",label:"ASO - Atestado de Saúde Ocupacional"},
+              {id:"toxicologico",label:"Exame Toxicológico"},
+              {id:"mopp",label:"MOPP - Produtos Perigosos"},
+              {id:"defensiva",label:"Direção Defensiva"},
+              {id:"carga",label:"Transporte de Cargas"},
+              {id:"antecedentes",label:"Antecedentes Criminais"},
+              {id:"cnhDigital",label:"CNH Digital"},
+              {id:"treinamento",label:"Certificado de Treinamento"},
+            ].map(cert => (
+              <div key={cert.id} className="flex items-center justify-between bg-gray-800/80 rounded-xl p-3 border border-white/5">
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" checked={!!certidoes[cert.id]} onChange={() => setCertidoes(prev => ({...prev, [cert.id]: !prev[cert.id]}))}
+                    className="w-5 h-5 rounded-lg text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500" />
+                  <span className="text-sm text-gray-200">{cert.label}</span>
+                </div>
+                <button onClick={() => addDoc(cert.label)} className="text-blue-400 text-xs hover:text-blue-300 flex items-center gap-1">
+                  <Upload size={12} /> Anexar
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+            <p className="text-yellow-300 text-xs">⚠️ O motorista só poderá aceitar entregas se todas as certidões obrigatórias estiverem anexadas.</p>
+          </div>
+        </div>
         <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} placeholder="Observacoes" rows={2}
           className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
 
