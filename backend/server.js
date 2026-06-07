@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -48,6 +49,40 @@ app.get('/api/drivers', (req, res) => {
 // Listar histórico de entregas
 app.get('/api/deliveries', (req, res) => {
   res.json(deliveries.slice(-50).reverse()); // ultimas 50
+});
+
+// Exportar banco de dados completo (JSON)
+app.get('/api/data', (req, res) => {
+  const db = {
+    exportadoEm: new Date().toISOString(),
+    totalMotoristas: drivers.size,
+    totalEntregas: deliveries.length,
+    motoristas: getDriversList(),
+    entregas: deliveries.slice().reverse(),
+  };
+  res.json(db);
+});
+
+// Exportar entregas como CSV
+app.get('/api/data/csv', (req, res) => {
+  const BOM = '\uFEFF';
+  const header = 'ID,ID Motorista,Endereco,Cliente,Valor,Status,Criada Em,Concluida Em';
+  const rows = deliveries.map(d => {
+    const c = (s) => `"${(s || '').replace(/"/g, '""')}"`;
+    return [
+      c(d.id),
+      c(d.driverId),
+      c(d.endereco),
+      c(d.cliente),
+      d.valor || 0,
+      c(d.status),
+      c(d.criadaEm),
+      c(d.concluidaEm || ''),
+    ].join(',');
+  });
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename=overons_entregas.csv');
+  res.send(BOM + header + '\n' + rows.join('\n'));
 });
 
 // ==================== SOCKET.IO ====================
@@ -113,6 +148,7 @@ io.on('connection', (socket) => {
     
     // Sempre notificar o dashboard sobre a atualizacao
     io.emit('drivers-update', getDriversList());
+    salvarDados();
 
     const locationData = {
       driverId: data.driverId,
@@ -149,6 +185,7 @@ io.on('connection', (socket) => {
     }
 
     io.emit('new-delivery-log', entrega);
+    salvarDados();
     console.log(`Entrega concluida: ${data.driverId} - R$ ${data.valor}`);
   });
 
@@ -182,6 +219,7 @@ io.on('connection', (socket) => {
 
     io.emit('new-delivery-log', novaEntrega);
     io.emit('drivers-update', getDriversList());
+    salvarDados();
     console.log(`Entrega atribuida a ${data.driverId}: ${data.endereco}`);
   });
 
@@ -218,9 +256,56 @@ function getDriversList() {
   return lista;
 }
 
+// ==================== PERSISTENCIA EM ARQUIVO ====================
+const DATA_FILE = path.join(__dirname, '..', 'data.json');
+
+function carregarDados() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf8');
+      const dados = JSON.parse(raw);
+      if (dados.drivers) {
+        for (const d of dados.drivers) {
+          drivers.set(d.id, d);
+        }
+      }
+      if (dados.deliveries) {
+        deliveries.push(...dados.deliveries);
+      }
+      console.log(`📂 Dados carregados: ${drivers.size} motoristas, ${deliveries.length} entregas`);
+    }
+  } catch (err) {
+    console.error('Erro ao carregar dados:', err.message);
+  }
+}
+
+function salvarDados() {
+  try {
+    const dados = {
+      ultimoSalvamento: new Date().toISOString(),
+      drivers: Array.from(drivers.values()),
+      deliveries: deliveries,
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(dados, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Erro ao salvar dados:', err.message);
+  }
+}
+
+// Salvar a cada 30 segundos e tambem ao encerrar
+setInterval(salvarDados, 30000);
+
+process.on('SIGINT', () => { salvarDados(); process.exit(); });
+process.on('SIGTERM', () => { salvarDados(); process.exit(); });
+
 // ==================== INICIALIZACAO ====================
 
 const PORT = process.env.PORT || 3000;
+
+carregarDados();
+
 server.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard.html`);
+  console.log(`📁 Dados salvos em: ${DATA_FILE}`);
 });

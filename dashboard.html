@@ -314,6 +314,9 @@
                 <button class="tab-btn" data-tab="deliveries">
                     <i class="fas fa-box"></i> Entregas
                 </button>
+                <button class="tab-btn" data-tab="data">
+                    <i class="fas fa-database"></i> Dados
+                </button>
                 <button class="tab-btn" data-tab="assign">
                     <i class="fas fa-plus-circle"></i> Atribuir
                 </button>
@@ -330,6 +333,53 @@
             <div class="tab-content" id="tabDeliveries">
                 <div id="deliveriesList">
                     <div class="no-items"><i class="fas fa-box fa-2x" style="display:block;margin-bottom:10px;color:#333;"></i>Nenhuma entrega registrada</div>
+                </div>
+            </div>
+            
+            <!-- Tab: Dados -->
+            <div class="tab-content" id="tabData">
+                <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <input type="text" id="dataSearch" placeholder="🔍 Buscar motorista ou endereço..." 
+                           style="flex:1;padding:8px 12px;border:1px solid #0f3460;border-radius:6px;background:#1a1a2e;color:#fff;font-size:13px;outline:none;">
+                    <a href="/api/data/csv" target="_blank" class="btn-primary" 
+                       style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;width:auto;font-size:12px;text-decoration:none;">
+                        <i class="fas fa-download"></i> CSV
+                    </a>
+                    <button onclick="carregarDados()" class="btn-primary" 
+                            style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;width:auto;font-size:12px;background:#0f3460;">
+                        <i class="fas fa-sync"></i> Atualizar
+                    </button>
+                </div>
+                
+                <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                    <span style="font-size:12px;color:#aaa;background:#0f3460;padding:4px 10px;border-radius:4px;">
+                        <i class="fas fa-users"></i> <strong id="dataTotalDrivers">0</strong> motoristas
+                    </span>
+                    <span style="font-size:12px;color:#aaa;background:#0f3460;padding:4px 10px;border-radius:4px;">
+                        <i class="fas fa-box"></i> <strong id="dataTotalDeliveries">0</strong> entregas
+                    </span>
+                    <span style="font-size:12px;color:#aaa;background:#0f3460;padding:4px 10px;border-radius:4px;">
+                        <i class="fas fa-clock"></i> <span id="dataUpdatedAt">—</span>
+                    </span>
+                </div>
+                
+                <div id="dataTableContainer" style="overflow-x:auto;">
+                    <table id="dataTable" style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead>
+                            <tr style="background:#0f3460;position:sticky;top:0;">
+                                <th style="padding:8px 6px;text-align:left;color:#00b894;">Tipo</th>
+                                <th style="padding:8px 6px;text-align:left;color:#00b894;">Motorista</th>
+                                <th style="padding:8px 6px;text-align:left;color:#00b894;">Endereço</th>
+                                <th style="padding:8px 6px;text-align:left;color:#00b894;">Cliente</th>
+                                <th style="padding:8px 6px;text-align:left;color:#00b894;">Valor</th>
+                                <th style="padding:8px 6px;text-align:left;color:#00b894;">Status</th>
+                                <th style="padding:8px 6px;text-align:left;color:#00b894;">Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
+                            <tr><td colspan="7" style="text-align:center;padding:20px;color:#888;">Carregando dados...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
             
@@ -639,6 +689,105 @@
             const deliveriesCount = document.querySelectorAll('.delivery-item').length;
             document.getElementById('statDeliveries').textContent = deliveriesCount;
         }
+        
+        // ==================== BANCO DE DADOS ====================
+        let allData = { motoristas: [], entregas: [] };
+        
+        async function carregarDados() {
+            try {
+                const res = await fetch('/api/data');
+                allData = await res.json();
+                
+                document.getElementById('dataTotalDrivers').textContent = allData.totalMotoristas || 0;
+                document.getElementById('dataTotalDeliveries').textContent = allData.totalEntregas || 0;
+                document.getElementById('dataUpdatedAt').textContent = 
+                    allData.exportadoEm ? new Date(allData.exportadoEm).toLocaleTimeString() : '—';
+                
+                renderTabela(allData);
+            } catch (err) {
+                document.getElementById('dataTableBody').innerHTML = 
+                    `<tr><td colspan="7" style="text-align:center;padding:20px;color:#d63031;">Erro ao carregar dados</td></tr>`;
+            }
+        }
+        
+        function renderTabela(dados) {
+            const search = (document.getElementById('dataSearch').value || '').toLowerCase();
+            const body = document.getElementById('dataTableBody');
+            
+            // Combinar motoristas + entregas em linhas
+            let linhas = [];
+            
+            for (const m of dados.motoristas) {
+                if (search && !m.id.toLowerCase().includes(search)) continue;
+                const tempo = m.ultimaAtualizacao ? timeSince(new Date(m.ultimaAtualizacao)) : '—';
+                linhas.push({
+                    tipo: 'motorista',
+                    id: m.id,
+                    endereco: `${m.latitude ? m.latitude.toFixed(4) : '—'}, ${m.longitude ? m.longitude.toFixed(4) : '—'}`,
+                    cliente: m.entregasHoje + ' entregas',
+                    valor: '—',
+                    status: `<span class="d-status ${m.status}">${m.status === 'online' ? '🟢 Online' : '⚪ Offline'}</span>`,
+                    data: tempo,
+                    sortTime: m.ultimaAtualizacao || '',
+                });
+            }
+            
+            for (const e of dados.entregas) {
+                if (search && !e.driverId.toLowerCase().includes(search) && 
+                    !(e.endereco || '').toLowerCase().includes(search) &&
+                    !(e.cliente || '').toLowerCase().includes(search)) continue;
+                
+                const badge = e.status === 'concluida' ? 'concluida' : 'atribuida';
+                const badgeLabel = e.status === 'concluida' ? '✅ Concluída' : '📋 Atribuída';
+                const dataStr = e.concluidaEm || e.criadaEm;
+                
+                linhas.push({
+                    tipo: 'entrega',
+                    id: e.driverId,
+                    endereco: e.endereco || '—',
+                    cliente: e.cliente || '—',
+                    valor: e.valor ? `R$ ${parseFloat(e.valor).toFixed(2)}` : '—',
+                    status: `<span class="d-badge ${badge}">${badgeLabel}</span>`,
+                    data: dataStr ? new Date(dataStr).toLocaleString() : '—',
+                    sortTime: dataStr || '',
+                });
+            }
+            
+            if (linhas.length === 0) {
+                body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#888;">Nenhum resultado encontrado</td></tr>`;
+                return;
+            }
+            
+            // Ordenar por data (mais recente primeiro)
+            linhas.sort((a, b) => b.sortTime.localeCompare(a.sortTime));
+            
+            let html = '';
+            for (const l of linhas) {
+                const bg = l.tipo === 'motorista' ? '#0f3460' : '#1a1a3e';
+                html += `
+                    <tr style="background:${bg};border-bottom:1px solid #16213e;">
+                        <td style="padding:6px;font-size:11px;color:#888;">
+                            ${l.tipo === 'motorista' ? '<i class="fas fa-truck"></i> Motorista' : '<i class="fas fa-box"></i> Entrega'}
+                        </td>
+                        <td style="padding:6px;font-weight:bold;font-size:12px;">${l.id.substring(0, 14)}</td>
+                        <td style="padding:6px;font-size:11px;color:#dfe6e9;">${l.endereco}</td>
+                        <td style="padding:6px;font-size:11px;color:#aaa;">${l.cliente}</td>
+                        <td style="padding:6px;font-weight:bold;color:#fdcb6e;font-size:12px;">${l.valor}</td>
+                        <td style="padding:6px;">${l.status}</td>
+                        <td style="padding:6px;font-size:10px;color:#636e72;">${l.data}</td>
+                    </tr>
+                `;
+            }
+            body.innerHTML = html;
+        }
+        
+        // Busca em tempo real
+        document.getElementById('dataSearch').addEventListener('input', () => renderTabela(allData));
+        
+        // Carregar dados ao abrir a aba
+        document.querySelector('.tab-btn[data-tab="data"]').addEventListener('click', () => {
+            setTimeout(carregarDados, 100);
+        });
         
         // ==================== ATRIBUIR ENTREGA ====================
         document.getElementById('assignForm').addEventListener('submit', (e) => {
