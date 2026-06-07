@@ -3,132 +3,630 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overons - Rastreamento de Entregadores</title>
+    <title>Overons - Painel de Controle</title>
     
-    <!-- Leaflet CSS (mapa) -->
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial; background: #1a1a2e; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #fff; }
+        
+        /* ===== HEADER ===== */
         .header {
-            background: #16213e;
+            background: linear-gradient(135deg, #16213e, #0f3460);
             color: white;
-            padding: 15px 20px;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #00b894;
+        }
+        .header h1 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .status-badge.online { background: #00b894; }
+        .status-badge.offline { background: #d63031; }
+        
+        .header-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+        }
+        .header-stats span { opacity: 0.8; }
+        .header-stats strong { opacity: 1; color: #00b894; font-size: 16px; }
+        
+        /* ===== LAYOUT ===== */
+        .container { display: flex; height: calc(100vh - 60px); }
+        #map { flex: 3; height: 100%; z-index: 1; }
+        
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            flex: 0 0 380px;
+            background: #16213e;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #0f3460;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #0f3460;
+            border-bottom: 2px solid #00b894;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .tab-btn.active { color: #00b894; background: #1a1a2e; border-bottom: 3px solid #00b894; margin-bottom: -2px; }
+        
+        /* Tab content */
+        .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; }
+        .tab-content.active { display: block; }
+        
+        /* ===== DRIVER LIST ===== */
+        .driver-card {
+            background: #0f3460;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .driver-card:hover { background: #1a1a4e; }
+        .driver-card.online { border-left-color: #00b894; }
+        .driver-card.offline { border-left-color: #636e72; opacity: 0.6; }
+        .driver-card.has-delivery { border-left-color: #fdcb6e; }
+        
+        .driver-card .d-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .status.online { background: #00b894; padding: 8px 15px; border-radius: 20px; }
-        .container { display: flex; height: calc(100vh - 70px); }
-        #map { flex: 3; height: 100%; }
-        .sidebar {
-            flex: 1;
-            background: #16213e;
-            color: white;
-            padding: 20px;
-            overflow-y: auto;
+        .driver-card .d-name { font-weight: bold; font-size: 14px; }
+        .driver-card .d-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+        .driver-card .d-status.online { background: #00b89422; color: #00b894; }
+        .driver-card .d-status.offline { background: #636e7222; color: #636e72; }
+        
+        .driver-card .d-info {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 5px;
         }
-        .driver-card {
+        .driver-card .d-info i { width: 14px; margin-right: 3px; }
+        
+        .no-items {
+            text-align: center;
+            color: #888;
+            padding: 30px;
+            font-size: 14px;
+        }
+        
+        /* ===== DELIVERY LOG ===== */
+        .delivery-item {
             background: #0f3460;
-            padding: 10px;
-            margin-bottom: 10px;
+            padding: 10px 12px;
+            margin-bottom: 6px;
             border-radius: 8px;
+            font-size: 13px;
             border-left: 3px solid #00b894;
         }
-        .stats {
-            background: #0f3460;
-            padding: 10px;
-            text-align: center;
-            border-radius: 8px;
-            margin-bottom: 20px;
+        .delivery-item .d-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3px;
         }
-        .stats .number { font-size: 2rem; font-weight: bold; color: #00b894; }
-        .no-drivers { text-align: center; color: #888; padding: 20px; }
+        .delivery-item .d-id { color: #00b894; font-weight: bold; font-size: 11px; }
+        .delivery-item .d-valor { color: #fdcb6e; font-weight: bold; }
+        .delivery-item .d-endereco { color: #dfe6e9; }
+        .delivery-item .d-time { color: #636e72; font-size: 11px; }
+        .delivery-item .d-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .delivery-item .d-badge.concluida { background: #00b89422; color: #00b894; }
+        .delivery-item .d-badge.atribuida { background: #fdcb6e22; color: #fdcb6e; }
+        
+        /* ===== ASSIGN FORM ===== */
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+        .form-group select, .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #0f3460;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+        }
+        .form-group select:focus, .form-group input:focus {
+            border-color: #00b894;
+        }
+        .form-group select option { background: #1a1a2e; color: #fff; }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        
+        .msg-success {
+            background: #00b89422;
+            color: #00b894;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        /* ===== NOTIFICACAO TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #0f3460;
+            color: #fff;
+            padding: 14px 20px;
+            border-radius: 8px;
+            border-left: 4px solid #00b894;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            z-index: 9999;
+            font-size: 13px;
+            max-width: 350px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #16213e; }
+        ::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 3px; }
+        
+        /* ===== RESPONSIVO ===== */
+        @media (max-width: 900px) {
+            .sidebar { flex: 0 0 300px; }
+            .header h1 { font-size: 16px; }
+            .header-stats { gap: 10px; font-size: 11px; }
+        }
+        @media (max-width: 600px) {
+            .container { flex-direction: column; }
+            #map { height: 50vh; }
+            .sidebar { flex: 1; border-left: none; border-top: 1px solid #0f3460; }
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>📦 Overons - Rastreamento de Entregas</h1>
-        <div class="status online" id="connectionStatus">🟢 Conectando...</div>
-    </div>
-    
-    <div class="container">
-        <div id="map"></div>
-        <div class="sidebar">
-            <div class="stats">
-                <div>🚚 Entregadores ativos</div>
-                <div class="number" id="driverCount">0</div>
+        <h1><i class="fas fa-truck"></i> Overons - Painel de Controle</h1>
+        <div class="header-right">
+            <div class="header-stats">
+                <span><i class="fas fa-users"></i> <strong id="statDrivers">0</strong> motoristas</span>
+                <span><i class="fas fa-box"></i> <strong id="statDeliveries">0</strong> entregas</span>
             </div>
-            <h3>📍 Entregadores</h3>
-            <div id="driversList">
-                <div class="no-drivers">Aguardando entregadores...</div>
+            <div class="status-badge online" id="connectionStatus">
+                <i class="fas fa-circle"></i> Conectando...
             </div>
         </div>
     </div>
+    
+    <div class="container">
+        <!-- MAPA -->
+        <div id="map"></div>
+        
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="drivers">
+                    <i class="fas fa-users"></i> Motoristas
+                </button>
+                <button class="tab-btn" data-tab="deliveries">
+                    <i class="fas fa-box"></i> Entregas
+                </button>
+                <button class="tab-btn" data-tab="assign">
+                    <i class="fas fa-plus-circle"></i> Atribuir
+                </button>
+            </div>
+            
+            <!-- Tab: Motoristas -->
+            <div class="tab-content active" id="tabDrivers">
+                <div id="driversList">
+                    <div class="no-items"><i class="fas fa-truck fa-2x" style="display:block;margin-bottom:10px;color:#333;"></i>Aguardando motoristas...</div>
+                </div>
+            </div>
+            
+            <!-- Tab: Entregas -->
+            <div class="tab-content" id="tabDeliveries">
+                <div id="deliveriesList">
+                    <div class="no-items"><i class="fas fa-box fa-2x" style="display:block;margin-bottom:10px;color:#333;"></i>Nenhuma entrega registrada</div>
+                </div>
+            </div>
+            
+            <!-- Tab: Atribuir -->
+            <div class="tab-content" id="tabAssign">
+                <form id="assignForm">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Motorista</label>
+                        <select id="assignDriver">
+                            <option value="">— Selecione um motorista —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-map-marker-alt"></i> Endereço de entrega</label>
+                        <input type="text" id="assignEndereco" placeholder="Ex: Rua Augusta, 1500" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-user-tag"></i> Nome do cliente</label>
+                        <input type="text" id="assignCliente" placeholder="Ex: João Silva">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-dollar-sign"></i> Valor (R$)</label>
+                        <input type="number" id="assignValor" placeholder="25.00" step="0.01" min="0">
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-paper-plane"></i> Atribuir Entrega
+                    </button>
+                </form>
+                <div class="msg-success" id="assignSuccess">
+                    <i class="fas fa-check-circle"></i> Entrega atribuída com sucesso!
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-        // Configurar mapa
+        // ==================== MAPA ====================
         const map = L.map('map').setView([-23.5505, -46.6333], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '&copy; OpenStreetMap'
         }).addTo(map);
         
-        const markers = new Map();
-        const socket = io(); // Conecta ao mesmo host do servidor
+        const markers = new Map(); // driverId -> { marker, circle, info }
         
+        // Icone personalizado (bolinha colorida via Leaflet divIcon)
+        function createDriverIcon(color) {
+            return L.divIcon({
+                className: '',
+                html: `<div style="
+                    width: 24px; height: 24px; 
+                    background: ${color}; 
+                    border: 3px solid #fff; 
+                    border-radius: 50%; 
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                "></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -12],
+            });
+        }
+        
+        function getDriverColor(status, hasDelivery) {
+            if (status === 'offline') return '#636e72';
+            if (hasDelivery) return '#fdcb6e';
+            return '#00b894';
+        }
+        
+        // ==================== SOCKET.IO ====================
+        const socket = io();
         const connectionStatus = document.getElementById('connectionStatus');
-        const driverCountEl = document.getElementById('driverCount');
-        const driversList = document.getElementById('driversList');
         
         socket.on('connect', () => {
-            console.log('Conectado');
-            connectionStatus.innerHTML = '🟢 Conectado';
+            connectionStatus.innerHTML = '<i class="fas fa-circle"></i> Conectado';
+            connectionStatus.className = 'status-badge online';
         });
         
         socket.on('disconnect', () => {
-            connectionStatus.innerHTML = '🔴 Desconectado';
+            connectionStatus.innerHTML = '<i class="fas fa-circle"></i> Desconectado';
+            connectionStatus.className = 'status-badge offline';
+        });
+        
+        // ==================== MOTORISTAS ====================
+        socket.on('drivers-update', (drivers) => {
+            updateDriversUI(drivers);
+            updateMarkers(drivers);
+            updateAssignSelect(drivers);
         });
         
         socket.on('location-update', (data) => {
-            console.log('Recebido:', data);
             const { driverId, latitude, longitude } = data;
             
             if (markers.has(driverId)) {
-                markers.get(driverId).setLatLng([latitude, longitude]);
+                const m = markers.get(driverId);
+                m.marker.setLatLng([latitude, longitude]);
+                if (m.circle) m.circle.setLatLng([latitude, longitude]);
             } else {
-                const marker = L.marker([latitude, longitude]).addTo(map);
-                marker.bindPopup(`<b>Entregador ${driverId}</b>`);
-                markers.set(driverId, marker);
-                // Centraliza o mapa no primeiro entregador que aparecer
-                map.setView([latitude, longitude], map.getZoom());
-            }
-            
-            // Atualizar lista
-            driverCountEl.textContent = markers.size;
-            if (markers.size === 0) {
-                driversList.innerHTML = '<div class="no-drivers">Nenhum entregador ativo</div>';
-            } else {
-                let html = '';
-                for (let [driverId, marker] of markers) {
-                    const latLng = marker.getLatLng();
-                    html += `
-                        <div class="driver-card">
-                            <h4>🚚 Entregador ${driverId.substring(0, 8)}</h4>
-                            <p>📍 ${latLng.lat.toFixed(6)}, ${latLng.lng.toFixed(6)}</p>
-                        </div>
-                    `;
-                }
-                driversList.innerHTML = html;
+                // Marker ainda nao existe - aguardar drivers-update
             }
         });
         
-        // Teste removido — sem entregador simulado
+        // ==================== ENTREGAS ====================
+        socket.on('new-delivery-log', (delivery) => {
+            addDeliveryToLog(delivery);
+            updateStats();
+            showToast(`📦 Nova entrega: ${delivery.driverId.substring(0,8)} - ${delivery.endereco}`);
+        });
         
-        console.log('Dashboard pronto!');
+        function addDeliveryToLog(d) {
+            const list = document.getElementById('deliveriesList');
+            const empty = list.querySelector('.no-items');
+            if (empty) list.innerHTML = '';
+            
+            const badge = d.status === 'concluida' ? 'concluida' : 'atribuida';
+            const badgeLabel = d.status === 'concluida' ? '✅ Concluída' : '📋 Atribuída';
+            const time = new Date(d.concluidaEm || d.criadaEm).toLocaleTimeString();
+            
+            const el = document.createElement('div');
+            el.className = 'delivery-item';
+            el.innerHTML = `
+                <div class="d-row">
+                    <span class="d-id">🚚 ${d.driverId.substring(0, 10)}</span>
+                    <span class="d-badge ${badge}">${badgeLabel}</span>
+                </div>
+                <div class="d-row">
+                    <span class="d-endereco">📍 ${d.endereco}</span>
+                    ${d.valor ? `<span class="d-valor">R$ ${parseFloat(d.valor).toFixed(2)}</span>` : ''}
+                </div>
+                <div class="d-row">
+                    <span class="d-time">🕐 ${time}</span>
+                    ${d.cliente ? `<span class="d-time">👤 ${d.cliente}</span>` : ''}
+                </div>
+            `;
+            list.prepend(el);
+        }
+        
+        // ==================== FUNCOES UI ====================
+        
+        function updateDriversUI(drivers) {
+            const list = document.getElementById('driversList');
+            const count = document.getElementById('statDrivers');
+            
+            count.textContent = drivers.length;
+            
+            if (drivers.length === 0) {
+                list.innerHTML = '<div class="no-items"><i class="fas fa-truck fa-2x" style="display:block;margin-bottom:10px;color:#333;"></i>Aguardando motoristas...</div>';
+                return;
+            }
+            
+            let html = '';
+            for (const d of drivers) {
+                const statusClass = d.status || 'offline';
+                const timeAgo = d.ultimaAtualizacao ? timeSince(new Date(d.ultimaAtualizacao)) : '—';
+                
+                html += `
+                    <div class="driver-card ${statusClass}" onclick="map.setView([${d.latitude || -23.5505}, ${d.longitude || -46.6333}], 15);">
+                        <div class="d-header">
+                            <span class="d-name"><i class="fas fa-truck"></i> ${d.id.substring(0, 14)}</span>
+                            <span class="d-status ${statusClass}">${statusClass === 'online' ? '🟢 Online' : '⚪ Offline'}</span>
+                        </div>
+                        <div class="d-info">
+                            <span><i class="fas fa-box"></i> ${d.entregasHoje || 0} entregas</span>
+                            <span><i class="fas fa-clock"></i> ${timeAgo}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            list.innerHTML = html;
+        }
+        
+        function updateMarkers(drivers) {
+            for (const d of drivers) {
+                if (!d.latitude || !d.longitude) continue;
+                
+                const color = getDriverColor(d.status, d.entregasHoje > 0);
+                
+                if (markers.has(d.id)) {
+                    const m = markers.get(d.id);
+                    m.marker.setLatLng([d.latitude, d.longitude]);
+                    m.marker.setIcon(createDriverIcon(color));
+                    if (m.circle) m.circle.setLatLng([d.latitude, d.longitude]);
+                    m.info = d;
+                } else {
+                    const marker = L.marker([d.latitude, d.longitude], {
+                        icon: createDriverIcon(color)
+                    }).addTo(map);
+                    
+                    marker.bindPopup(`
+                        <div style="font-family:Arial;min-width:180px;">
+                            <h4 style="margin:0 0 5px;color:#16213e;">🚚 ${d.id}</h4>
+                            <p style="margin:2px 0;font-size:13px;">
+                                <b>Status:</b> ${d.status === 'online' ? '🟢 Online' : '⚪ Offline'}<br>
+                                <b>📍</b> ${d.latitude.toFixed(6)}, ${d.longitude.toFixed(6)}<br>
+                                <b>📦 Entregas:</b> ${d.entregasHoje || 0}<br>
+                                <b>🕐 Última atualização:</b> ${timeSince(new Date(d.ultimaAtualizacao))}
+                            </p>
+                        </div>
+                    `);
+                    
+                    // Circulo de precisao
+                    const circle = L.circle([d.latitude, d.longitude], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.1,
+                        radius: 50,
+                    }).addTo(map);
+                    
+                    markers.set(d.id, { marker, circle, info: d });
+                    
+                    // Centraliza no primeiro
+                    if (markers.size === 1) {
+                        map.setView([d.latitude, d.longitude], 14);
+                    }
+                }
+            }
+            
+            // Remover markers de motoristas que desconectaram
+            const activeIds = new Set(drivers.filter(d => d.latitude).map(d => d.id));
+            for (const [id, m] of markers) {
+                if (!activeIds.has(id)) {
+                    map.removeLayer(m.marker);
+                    if (m.circle) map.removeLayer(m.circle);
+                    markers.delete(id);
+                }
+            }
+            
+            updateStats();
+        }
+        
+        function updateAssignSelect(drivers) {
+            const select = document.getElementById('assignDriver');
+            const current = select.value;
+            select.innerHTML = '<option value="">— Selecione um motorista —</option>';
+            
+            const online = drivers.filter(d => d.status === 'online' && d.latitude);
+            const offline = drivers.filter(d => d.status !== 'online' || !d.latitude);
+            
+            if (online.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '🟢 Online';
+                for (const d of online) {
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.textContent = `${d.id} (${d.entregasHoje || 0} entregas)`;
+                    optgroup.appendChild(opt);
+                }
+                select.appendChild(optgroup);
+            }
+            
+            if (offline.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '⚪ Offline';
+                for (const d of offline) {
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.textContent = `${d.id} (${d.entregasHoje || 0} entregas)`;
+                    optgroup.appendChild(opt);
+                }
+                select.appendChild(optgroup);
+            }
+            
+            if (current) select.value = current;
+        }
+        
+        function updateStats() {
+            document.getElementById('statDrivers').textContent = markers.size;
+            // Delivery count via DOM
+            const deliveriesCount = document.querySelectorAll('.delivery-item').length;
+            document.getElementById('statDeliveries').textContent = deliveriesCount;
+        }
+        
+        // ==================== ATRIBUIR ENTREGA ====================
+        document.getElementById('assignForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const driverId = document.getElementById('assignDriver').value;
+            const endereco = document.getElementById('assignEndereco').value.trim();
+            const cliente = document.getElementById('assignCliente').value.trim();
+            const valor = document.getElementById('assignValor').value;
+            
+            if (!driverId || !endereco) {
+                showToast('⚠️ Selecione um motorista e informe o endereço!');
+                return;
+            }
+            
+            socket.emit('assign-delivery', {
+                driverId,
+                endereco,
+                cliente: cliente || 'Nao informado',
+                valor: valor ? parseFloat(valor) : 0,
+            });
+            
+            // Limpar formulario
+            document.getElementById('assignEndereco').value = '';
+            document.getElementById('assignCliente').value = '';
+            document.getElementById('assignValor').value = '';
+            
+            // Mostrar sucesso
+            const msg = document.getElementById('assignSuccess');
+            msg.style.display = 'block';
+            setTimeout(() => { msg.style.display = 'none'; }, 3000);
+            
+            // Mudar para tab de entregas
+            switchTab('deliveries');
+        });
+        
+        // ==================== TABS ====================
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                switchTab(tab);
+            });
+        });
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+        }
+        
+        // ==================== TOAST ====================
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerHTML = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+        
+        // ==================== UTILITARIOS ====================
+        function timeSince(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 10) return 'agora';
+            if (seconds < 60) return `${seconds}s atrás`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}min atrás`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h atrás`;
+            return `${Math.floor(hours / 24)}d atrás`;
+        }
+        
+        console.log('✅ Dashboard Overons carregado!');
     </script>
 </body>
 </html>

@@ -514,6 +514,10 @@
                 console.log('Conectado ao servidor');
                 mostrarNotificacao('Conectado ao servidor Overons!');
                 socket.emit('driver-register', { driverId, status: isOnline ? 'online' : 'offline' });
+                // Enviar localizacao atual se ja estiver rastreando
+                if (trackingActive) {
+                    socket.emit('driver-status', { driverId, status: isOnline ? 'online' : 'offline' });
+                }
             });
             
             socket.on('disconnect', () => {
@@ -524,7 +528,7 @@
             
             socket.on('new-delivery', (delivery) => {
                 if (isOnline) {
-                    mostrarNotificacao(`📦 Nova entrega! ${delivery.pickup} → ${delivery.dropoff}`);
+                    mostrarNotificacao(`📦 Nova entrega para ${delivery.endereco}! ${delivery.cliente ? 'Cliente: ' + delivery.cliente : ''}`);
                 }
             });
         }

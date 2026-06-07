@@ -504,8 +504,15 @@
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
+        // ==================== CONEXAO COM O SERVIDOR ====================
+        const socket = io();
+        socket.on('connect', () => {
+            console.log('CLT conectado ao servidor');
+            socket.emit('driver-register', { driverId, status: 'online' });
+        });
+        
         // ==================== VARIÁVEIS GLOBAIS ====================
-        const driverId = 'ENT_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const driverId = 'CLT_' + Math.random().toString(36).substring(2, 8).toUpperCase();
         let workStartTime = null;
         let breakStartTime = null;
         let totalBreakTime = 0;
@@ -758,6 +765,18 @@
             
             deliveries.push(delivery);
             updateStats();
+            
+            // Notificar servidor
+            if (socket && socket.connected) {
+                socket.emit('delivery-completed', {
+                    driverId,
+                    endereco: delivery.address,
+                    cliente: delivery.receiver,
+                    valor: 0,
+                    timestamp: new Date().toISOString(),
+                });
+            }
+            
             mostrarToast('✅ Entrega finalizada com sucesso!');
             
             // Limpar formulário
