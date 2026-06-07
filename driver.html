@@ -581,20 +581,21 @@
                 var box = document.createElement('div');
                 box.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:24px;padding:40px 32px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
                 
-                // Monta o HTML (sem template literals aninhados)
+                // Monta o HTML
                 var html = '<div style="font-size:48px;margin-bottom:12px;">📢</div>';
                 html += '<div style="font-size:13px;opacity:0.8;margin-bottom:4px;">' + (msg.empresa || 'Empresa') + '</div>';
                 html += '<div style="font-size:18px;font-weight:bold;margin-bottom:16px;line-height:1.4;">' + msg.message + '</div>';
-                var btnOk = document.createElement('button');
-                btnOk.textContent = 'OK ✓';
-                btnOk.style.cssText = 'padding:12px 32px;border:none;border-radius:12px;background:#fff;color:#667eea;font-size:16px;font-weight:bold;cursor:pointer;min-width:120px;margin-top:12px;';
-                btnOk.onclick = function() {
-                    popup.remove();
-                    try { if (window.socket && msg.id) window.socket.emit('message-read', { messageId: msg.id }); } catch(e) { console.error('Erro confirmacao:', e); }
-                };
-                box.appendChild(btnOk);
+                html += '<button id="btn-ok-popup" style="padding:12px 32px;border:none;border-radius:12px;background:#fff;color:#667eea;font-size:16px;font-weight:bold;cursor:pointer;min-width:120px;margin-top:12px;">OK ✓</button>';
                 
                 box.innerHTML = html;
+                // Adiciona evento de clique ao botao OK (depois do innerHTML)
+                var btnOk = box.querySelector('#btn-ok-popup');
+                if (btnOk) {
+                    btnOk.onclick = function() {
+                        popup.remove();
+                        try { if (window.socket && msg.id) window.socket.emit('message-read', { messageId: msg.id }); } catch(e) { console.error('Erro confirmacao:', e); }
+                    };
+                }
                 popup.appendChild(box);
                 document.body.appendChild(popup);
                 
