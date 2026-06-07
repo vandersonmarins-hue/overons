@@ -451,6 +451,14 @@
             nameTag.innerHTML = `<i class="fas fa-user"></i> ${driverName}`;
             header.appendChild(nameTag);
             
+            // Re-enviar registro com o nome para o servidor
+            if (socket && socket.connected) {
+                socket.emit('driver-register', { driverId, nome: driverName, status: isOnline ? 'online' : 'offline' });
+                if (trackingActive) {
+                    socket.emit('driver-status', { driverId, status: isOnline ? 'online' : 'offline' });
+                }
+            }
+            
             mostrarNotificacao(`👋 Bem-vindo, ${driverName}!`);
         });
         
@@ -463,7 +471,11 @@
                 nameTag.className = 'driver-name-display';
                 nameTag.innerHTML = `<i class="fas fa-user"></i> ${driverName}`;
                 header.appendChild(nameTag);
-            }, 500);
+                // Re-enviar nome ao servidor apos conectar
+                if (socket && socket.connected) {
+                    socket.emit('driver-register', { driverId, nome: driverName, status: isOnline ? 'online' : 'offline' });
+                }
+            }, 1000);
         }
         
         console.log(`Seu ID: ${driverId}`);
