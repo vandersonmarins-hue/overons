@@ -920,6 +920,38 @@ app.get('/api/messages', (req, res) => {
   res.json(messageLog.slice(-100).reverse());
 });
 
+// ==================== API: ENTREGAS ====================
+const entregasDB = [];
+
+// Listar entregas cadastradas
+app.get('/api/entregas', (req, res) => {
+  res.json(entregasDB.slice().reverse());
+});
+
+// Cadastrar nova entrega
+app.post('/api/entregas', (req, res) => {
+  const { cliente, endereco, observacoes, produtos } = req.body;
+  if (!cliente || !endereco) return res.status(400).json({ erro: 'Cliente e endereco obrigatorios' });
+
+  const pedidoId = 'PED-' + Date.now().toString(36).toUpperCase();
+  const chaveAcesso = 'MAR-' + Date.now().toString(36).toUpperCase().slice(0, 8);
+
+  const nova = {
+    id: Date.now().toString(),
+    pedidoId,
+    chaveAcesso,
+    cliente,
+    endereco,
+    produtos: produtos || [],
+    observacoes: observacoes || '',
+    status: 'AGUARDANDO_CONFIRMACAO',
+    criadaEm: new Date().toISOString(),
+  };
+
+  entregasDB.push(nova);
+  res.json({ success: true, pedidoId, chaveAcesso });
+});
+
 // ==================== API: MENSAGENS VIA REST (FALLBACK) ====================
 
 // Enviar mensagem via REST (mais confiavel que Socket.IO)
