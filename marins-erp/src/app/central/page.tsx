@@ -47,8 +47,8 @@ export default function CentralPage() {
           <div className="bg-blue-600 w-9 h-9 rounded-xl flex items-center justify-center"><Truck className="text-white" size={18} /></div>
           <h1 className="font-bold text-lg">Central de Monitoramento</h1>
         </div>
-        <Link href="/central/cadastro-cliente" className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-700 mr-2">+ Cliente</Link>
-        <Link href="/central/cadastro-motorista" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 mr-2">+ Motorista</Link>
+        <Link href="/central/clientes-list" className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-700 mr-2">Clientes</Link>
+        <Link href="/central/transportadores" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 mr-2">Transportadores</Link>
         <Link href="/central/nova-entrega" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 mr-2">+ Nova Entrega</Link>
         <button onClick={load} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-white/5 px-4 py-2 rounded-xl"><RefreshCw size={14} /> Atualizar</button>
       </header>
