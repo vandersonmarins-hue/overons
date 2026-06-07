@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
 
   const checklists = readJSON('checklists.json');
   const expenses = readJSON('expenses.json');
+  const acessos = readJSON('../api/acesso/route.ts').length > 0 ? [] : [];
   const deliveries = readJSON('deliveries.json').length > 0 ? readJSON('deliveries.json') : [];
 
   // Filtrar por período

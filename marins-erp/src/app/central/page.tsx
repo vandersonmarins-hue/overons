@@ -26,6 +26,8 @@ const STATUS_LABELS: Record<string, string> = {
   ENTREGUE: '✅ Entregue',
 };
 
+import AcompanhamentoClientes from '@/components/central/AcompanhamentoClientes';
+
 export default function CentralPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -103,7 +105,8 @@ export default function CentralPage() {
             </div>
           </>
         )}
-      </main>
+        <div className="max-w-7xl mx-auto px-5 pb-8"><AcompanhamentoClientes /></div>
+</main>
     </div>
   );
 }

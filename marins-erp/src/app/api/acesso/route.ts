@@ -7,6 +7,18 @@ const CHAVES = new Map([
   ['DEMO-123', { pedidoId: 'PED-2024-001', cliente: 'Cliente Demonstracao', validaAte: '2026-12-31' }],
 ]);
 
+// Registro de acessos
+const acessosRegistrados = new Map();
+
+export function getAcessosRegistrados() {
+  return Array.from(acessosRegistrados.values());
+}
+
+
+// GET: listar acessos registrados
+export async function GET() {
+  return NextResponse.json({ acessos: getAcessosRegistrados(), total: acessosRegistrados.size });
+}
 export async function POST(req: Request) {
   const { chave } = await req.json();
   
@@ -24,6 +36,16 @@ export async function POST(req: Request) {
   if (validaAte < new Date()) {
     return NextResponse.json({ valida: false, erro: 'Chave de acesso expirada' }, { status: 401 });
   }
+
+  // Registra o acesso
+  const chaveUpper = chave.toUpperCase().trim();
+  acessosRegistrados.set(chaveUpper, {
+    chave: chaveUpper,
+    pedidoId: dados.pedidoId,
+    cliente: dados.cliente,
+    primeiroAcesso: new Date().toISOString(),
+    ultimoAcesso: new Date().toISOString(),
+  });
 
   return NextResponse.json({
     valida: true,
