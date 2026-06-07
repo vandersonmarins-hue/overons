@@ -124,21 +124,7 @@
             }
         });
         
-        // ENTREGADOR DE TESTE ATIVADO
-        setTimeout(() => {
-            let lat = -23.5505;
-            let lng = -46.6333;
-            setInterval(() => {
-                lat += (Math.random() - 0.5) * 0.02;
-                lng += (Math.random() - 0.5) * 0.02;
-                socket.emit('driver-location', {
-                    driverId: 'TESTE_001',
-                    latitude: lat,
-                    longitude: lng,
-                    timestamp: new Date().toISOString()
-                });
-            }, 3000);
-        }, 2000);
+        // Teste removido — sem entregador simulado
         
         console.log('Dashboard pronto!');
     </script>
