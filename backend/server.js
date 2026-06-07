@@ -93,11 +93,12 @@ io.on('connection', (socket) => {
   // Registrar motorista
   socket.on('driver-register', (data) => {
     if (!data || !data.driverId) return;
-    console.log(`Motorista registrado: ${data.driverId}`);
+    console.log(`Motorista registrado: ${data.driverId} (${data.nome || 'sem nome'})`);
 
     if (!drivers.has(data.driverId)) {
       drivers.set(data.driverId, {
         id: data.driverId,
+        nome: data.nome || '',
         status: data.status || 'online',
         lastLat: null,
         lastLng: null,
@@ -110,6 +111,7 @@ io.on('connection', (socket) => {
       d.status = data.status || d.status;
       d.socketId = socket.id;
       d.lastSeen = new Date().toISOString();
+      if (data.nome) d.nome = data.nome;
     }
 
     io.emit('drivers-update', getDriversList());
@@ -136,8 +138,10 @@ io.on('connection', (socket) => {
     // Atualizar dados do motorista
     const isNew = !drivers.has(data.driverId);
     
+    const existingNome = !isNew ? drivers.get(data.driverId).nome : '';
     drivers.set(data.driverId, {
       id: data.driverId,
+      nome: existingNome || data.nome || '',
       status: 'online',
       lastLat: data.latitude,
       lastLng: data.longitude,
@@ -167,6 +171,7 @@ io.on('connection', (socket) => {
     const entrega = {
       id: Date.now().toString(),
       driverId: data.driverId,
+      nomeMotorista: data.nome || '',
       endereco: data.endereco || 'Nao informado',
       cliente: data.cliente || 'Nao informado',
       valor: data.valor || 0,
@@ -246,6 +251,7 @@ function getDriversList() {
   for (const [id, info] of drivers) {
     lista.push({
       id,
+      nome: info.nome || '',
       status: info.status,
       latitude: info.lastLat,
       longitude: info.lastLng,

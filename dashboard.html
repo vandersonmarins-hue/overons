@@ -503,7 +503,7 @@
                 const marker = L.marker([latitude, longitude], {
                     icon: createDriverIcon(color, 'online', false)
                 }).addTo(map);
-                marker.bindPopup(`<div style="font-family:Arial;min-width:180px;"><h4 style="margin:0 0 5px;color:#16213e;">🚚 ${driverId}</h4><p style="margin:2px 0;font-size:13px;"><b>Status:</b> 🟢 Online<br><b>📍</b> ${latitude.toFixed(6)}, ${longitude.toFixed(6)}</p></div>`);
+                marker.bindPopup(`<div style="font-family:Arial;min-width:180px;"><h4 style="margin:0 0 5px;color:#16213e;">🚚 ${nomeMotorista({id: driverId, nome: data.nome || ''})}</h4><p style="margin:2px 0;font-size:13px;"><b>Status:</b> 🟢 Online<br><b>📍</b> ${latitude.toFixed(6)}, ${longitude.toFixed(6)}</p></div>`);
                 
                 const circle = L.circle([latitude, longitude], {
                     color: color, fillColor: color, fillOpacity: 0.1, radius: 50,
@@ -521,7 +521,7 @@
         socket.on('new-delivery-log', (delivery) => {
             addDeliveryToLog(delivery);
             updateStats();
-            showToast(`📦 Nova entrega: ${delivery.driverId.substring(0,8)} - ${delivery.endereco}`);
+            showToast(`📦 Nova entrega: ${delivery.nome || delivery.driverId.substring(0,8)} - ${delivery.endereco}`);
         });
         
         function addDeliveryToLog(d) {
@@ -537,7 +537,7 @@
             el.className = 'delivery-item';
             el.innerHTML = `
                 <div class="d-row">
-                    <span class="d-id">🚚 ${d.driverId.substring(0, 10)}</span>
+                    <span class="d-id">🚚 ${nomeCurto(d)}</span>
                     <span class="d-badge ${badge}">${badgeLabel}</span>
                 </div>
                 <div class="d-row">
@@ -576,7 +576,7 @@
                          data-driver="${d.id}"
                          onclick="focarMotorista('${d.id}', ${d.latitude || 0}, ${d.longitude || 0})">
                         <div class="d-header">
-                            <span class="d-name"><i class="fas fa-truck"></i> ${d.id.substring(0, 14)}</span>
+                            <span class="d-name"><i class="fas fa-truck"></i> ${nomeMotorista(d)}</span>
                             <span class="d-status ${statusClass}">${statusClass === 'online' ? '🟢 Online' : '⚪ Offline'}</span>
                         </div>
                         <div class="d-info">
@@ -608,7 +608,7 @@
                     
                     marker.bindPopup(`
                         <div style="font-family:Arial;min-width:180px;">
-                            <h4 style="margin:0 0 5px;color:#16213e;">🚚 ${d.id}</h4>
+                            <h4 style="margin:0 0 5px;color:#16213e;">🚚 ${nomeMotorista(d)}</h4>
                             <p style="margin:2px 0;font-size:13px;">
                                 <b>Status:</b> ${d.status === 'online' ? '🟢 Online' : '⚪ Offline'}<br>
                                 <b>📍</b> ${d.latitude.toFixed(6)}, ${d.longitude.toFixed(6)}<br>
@@ -662,7 +662,7 @@
                 for (const d of online) {
                     const opt = document.createElement('option');
                     opt.value = d.id;
-                    opt.textContent = `${d.id} (${d.entregasHoje || 0} entregas)`;
+                    opt.textContent = `${nomeMotorista(d)} (${d.entregasHoje || 0} entregas)`;
                     optgroup.appendChild(opt);
                 }
                 select.appendChild(optgroup);
@@ -674,7 +674,7 @@
                 for (const d of offline) {
                     const opt = document.createElement('option');
                     opt.value = d.id;
-                    opt.textContent = `${d.id} (${d.entregasHoje || 0} entregas)`;
+                    opt.textContent = `${nomeMotorista(d)} (${d.entregasHoje || 0} entregas)`;
                     optgroup.appendChild(opt);
                 }
                 select.appendChild(optgroup);
@@ -718,11 +718,13 @@
             let linhas = [];
             
             for (const m of dados.motoristas) {
-                if (search && !m.id.toLowerCase().includes(search)) continue;
+                const nomeBusca = (m.nome || '').toLowerCase();
+                if (search && !m.id.toLowerCase().includes(search) && !nomeBusca.includes(search)) continue;
                 const tempo = m.ultimaAtualizacao ? timeSince(new Date(m.ultimaAtualizacao)) : '—';
                 linhas.push({
                     tipo: 'motorista',
                     id: m.id,
+                    nome: m.nome || m.id.substring(0, 14),
                     endereco: `${m.latitude ? m.latitude.toFixed(4) : '—'}, ${m.longitude ? m.longitude.toFixed(4) : '—'}`,
                     cliente: m.entregasHoje + ' entregas',
                     valor: '—',
@@ -744,6 +746,7 @@
                 linhas.push({
                     tipo: 'entrega',
                     id: e.driverId,
+                    nome: e.nomeMotorista || e.driverId.substring(0, 14),
                     endereco: e.endereco || '—',
                     cliente: e.cliente || '—',
                     valor: e.valor ? `R$ ${parseFloat(e.valor).toFixed(2)}` : '—',
@@ -769,7 +772,7 @@
                         <td style="padding:6px;font-size:11px;color:#888;">
                             ${l.tipo === 'motorista' ? '<i class="fas fa-truck"></i> Motorista' : '<i class="fas fa-box"></i> Entrega'}
                         </td>
-                        <td style="padding:6px;font-weight:bold;font-size:12px;">${l.id.substring(0, 14)}</td>
+                        <td style="padding:6px;font-weight:bold;font-size:12px;">${l.nome || l.id.substring(0, 14)}</td>
                         <td style="padding:6px;font-size:11px;color:#dfe6e9;">${l.endereco}</td>
                         <td style="padding:6px;font-size:11px;color:#aaa;">${l.cliente}</td>
                         <td style="padding:6px;font-weight:bold;color:#fdcb6e;font-size:12px;">${l.valor}</td>
@@ -858,6 +861,16 @@
             const hours = Math.floor(minutes / 60);
             if (hours < 24) return `${hours}h atrás`;
             return `${Math.floor(hours / 24)}d atrás`;
+        }
+        
+        // ==================== HELPER: NOME DO MOTORISTA ====================
+        function nomeMotorista(d) {
+            const nome = d.nome || '';
+            if (nome) return `${nome} (${(d.id || '').substring(0, 8)})`;
+            return (d.id || '').substring(0, 14);
+        }
+        function nomeCurto(d) {
+            return d.nome || (d.id || '').substring(0, 10);
         }
         
         // ==================== FOCAR MOTORISTA NO MAPA ====================
