@@ -710,25 +710,37 @@ io.on('connection', (socket) => {
 });
 
 function getDriversList() {
+  const now = Date.now();
   const lista = [];
-  for (const [id, info] of drivers) lista.push({ id, nome: info.nome || '', status: info.status, latitude: info.lastLat, longitude: info.lastLng, ultimaAtualizacao: info.lastSeen, entregasHoje: info.deliveriesCount });
+  for (const [id, info] of drivers) {
+    // Pula motoristas offline sem atualizacao nos ultimos 5 minutos
+    if (info.status === 'offline' && info.lastSeen) {
+      const age = now - new Date(info.lastSeen).getTime();
+      if (age > MAX_DRIVER_AGE_MS) {
+        drivers.delete(id); // Remove automaticamente
+        continue;
+      }
+    }
+    lista.push({ id, nome: info.nome || '', status: info.status, latitude: info.lastLat, longitude: info.lastLng, ultimaAtualizacao: info.lastSeen, entregasHoje: info.deliveriesCount });
+  }
   return lista;
 }
 
 // ==================== PERSISTENCIA ====================
 
 const DATA_FILE = path.join(__dirname, '..', 'data.json');
+const MAX_DRIVER_AGE_MS = 5 * 60 * 1000; // 5 minutos
 
 function carregarDados() {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, 'utf8');
       const dados = JSON.parse(raw);
-      if (dados.drivers) for (const d of dados.drivers) drivers.set(d.id, d);
       if (dados.deliveries) deliveries.push(...dados.deliveries);
-      console.log(`📂 Dados carregados: ${drivers.size} motoristas, ${deliveries.length} entregas`);
+      console.log(`📂 Dados carregados: ${deliveries.length} entregas`);
     }
   } catch (err) { console.error('Erro ao carregar dados:', err.message); }
+  // Nao carrega drivers do arquivo - sessoes sao apenas em tempo real
 }
 
 function salvarDados() {
