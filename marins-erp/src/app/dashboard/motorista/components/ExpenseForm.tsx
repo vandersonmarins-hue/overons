@@ -2,6 +2,15 @@
 
 import { useState } from 'react';
 
+const EXPENSE_TYPES = [
+  { value: 'toll', label: '🏗️ Pedágio' },
+  { value: 'parking', label: '🅿️ Estacionamento' },
+  { value: 'meal', label: '🍽️ Alimentação' },
+  { value: 'fuel', label: '⛽ Combustível' },
+  { value: 'maintenance', label: '🔧 Manutenção' },
+  { value: 'other', label: '📦 Outro' },
+];
+
 export default function ExpenseForm({ onClose }: { onClose: () => void }) {
   const [type, setType] = useState('toll');
   const [value, setValue] = useState('');
@@ -16,45 +25,39 @@ export default function ExpenseForm({ onClose }: { onClose: () => void }) {
       await fetch('/api/motorista/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          driverName: 'João Motorista',
-          type,
-          value: parseFloat(value),
-          description,
-          date: new Date().toISOString().split('T')[0],
-        }),
+        body: JSON.stringify({ driverName: 'João Motorista', type, value: parseFloat(value), description, date: new Date().toISOString().split('T')[0] }),
       });
       setSaved(true);
       setTimeout(onClose, 1500);
-    } catch (e) {
-      alert('Erro ao salvar despesa');
-    }
+    } catch { alert('Erro ao salvar'); }
     setSaving(false);
   };
 
-  if (saved) return <div className="text-center text-green-600 py-8">✅ Despesa registrada!</div>;
+  if (saved) return <div className="text-center text-green-400 font-bold py-8 text-lg">✅ Despesa registrada!</div>;
 
   return (
     <div>
-      <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4">💰 Registrar Despesa</h3>
-      <select value={type} onChange={e => setType(e.target.value)}
-        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 mb-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-        <option value="toll">Pedágio</option>
-        <option value="parking">Estacionamento</option>
-        <option value="meal">Alimentação</option>
-        <option value="fuel">Combustível</option>
-        <option value="maintenance">Manutenção</option>
-        <option value="other">Outro</option>
-      </select>
-      <input value={value} onChange={e => setValue(e.target.value)} placeholder="Valor R$" type="number" step="0.01" min="0"
-        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 mb-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+      <p className="text-sm text-gray-300 mb-4">Preencha os dados da despesa:</p>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {EXPENSE_TYPES.map(t => (
+          <button key={t.value} onClick={() => setType(t.value)}
+            className={`py-3 px-3 rounded-xl text-sm font-medium transition-all active:scale-95 ${type === t.value ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30' : 'bg-gray-800 text-gray-300 border border-white/10 hover:bg-gray-700'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="relative mb-4">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">R$</span>
+        <input value={value} onChange={e => setValue(e.target.value)} type="number" step="0.01" min="0" placeholder="0,00"
+          className="w-full bg-gray-800 border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-lg text-white font-bold placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
+      </div>
       <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Descrição (opcional)"
-        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 mb-4 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+        className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 mb-5 focus:outline-none focus:border-blue-500/50" />
       <div className="flex gap-3">
-        <button onClick={onClose} className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400">Cancelar</button>
+        <button onClick={onClose} className="flex-1 py-3 border border-white/10 rounded-xl text-sm font-medium text-gray-300 hover:bg-white/5 transition-colors">Cancelar</button>
         <button onClick={save} disabled={saving || !value}
-          className="flex-1 bg-orange-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50">
-          {saving ? 'Salvando...' : 'Registrar'}
+          className="flex-1 bg-orange-500 text-white py-3 rounded-xl text-sm font-bold hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-orange-900/30">
+          {saving ? 'Salvando...' : '💰 Registrar'}
         </button>
       </div>
     </div>

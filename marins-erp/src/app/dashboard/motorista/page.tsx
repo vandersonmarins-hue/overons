@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, MapPin, Bell, MessageSquare, FileText, CheckCircle, Fuel, CreditCard, ListChecks, TrendingUp, User, Navigation, Wifi, WifiOff, X, AlertTriangle, Phone, Camera, HelpCircle, Clock, Route } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -13,16 +13,13 @@ import { useDriverStore } from './hooks/useDriverStore';
 import ChecklistForm from './components/ChecklistForm';
 import ExpenseForm from './components/ExpenseForm';
 
-// ============================================================
-// MENU SIDEBAR
-// ============================================================
 const MENU_ITEMS = [
   { id: 'map', icon: MapPin, label: 'Mapa da Rota' },
   { id: 'summary', icon: TrendingUp, label: 'Resumo do Dia' },
   { id: 'delivery', icon: Package, label: 'Entrega Atual' },
   { id: 'documents', icon: FileText, label: 'Documentos' },
   { id: 'chat', icon: MessageSquare, label: 'Comunicação' },
-  { id: 'checklist', icon: ListChecks, label: 'Checklist Diário' },
+  { id: 'checklist', icon: ListChecks, label: 'Checklist' },
   { id: 'expenses', icon: CreditCard, label: 'Despesas' },
 ];
 
@@ -43,26 +40,23 @@ export default function DriverPage() {
     }
   }, []);
 
-  const openSection = (id: string) => { setSection(id); setMenuOpen(false); };
-
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gray-900 relative">
-      {/* MAPA TELA CHEIA */}
+    <div className="h-screen w-screen overflow-hidden bg-black relative">
+      {/* MAPA FULLSCREEN */}
       {mounted && (
         <div className="absolute inset-0 z-0">
           <MapContainer center={[currentLocation?.lat || -23.561, currentLocation?.lng || -46.656]} zoom={13} className="h-full w-full" zoomControl={false}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             {deliveries.filter(d => d.lat).map((d) => (
               <Marker key={d.id} position={[d.lat, d.lng]}>
-                <Popup><div className="font-semibold text-sm">{d.clientName}</div><div className="text-xs text-gray-500">{d.address}</div></Popup>
+                <Popup><div className="font-bold text-sm">{d.clientName}</div><div className="text-xs text-gray-600">{d.address}</div></Popup>
               </Marker>
             ))}
             {currentLocation && <Marker position={[currentLocation.lat, currentLocation.lng]}><Popup>📍 Você</Popup></Marker>}
           </MapContainer>
-          <button onClick={() => {
-            if (current) window.open(`https://www.google.com/maps/dir/?api=1&destination=${current.lat},${current.lng}`, '_blank');
-          }} className="absolute bottom-6 right-4 bg-blue-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-bold flex items-center gap-2 z-10">
-            <Navigation size={18} /> Iniciar Navegação
+          <button onClick={() => { if (current) window.open(`https://www.google.com/maps/dir/?api=1&destination=${current.lat},${current.lng}`, '_blank'); }}
+            className="absolute bottom-6 right-4 bg-blue-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-bold flex items-center gap-2 z-10 shadow-blue-900/50 hover:bg-blue-700 active:scale-95 transition-all">
+            <Navigation size={18} /> Navegar
           </button>
         </div>
       )}
@@ -70,15 +64,15 @@ export default function DriverPage() {
       {/* TOP BAR */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-3">
         <button onClick={() => setMenuOpen(true)}
-          className="w-11 h-11 bg-black/50 backdrop-blur rounded-xl flex flex-col items-center justify-center gap-1.5 border border-white/10">
+          className="w-11 h-11 bg-gray-900/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-1.5 border border-white/20 shadow-lg active:scale-95 transition-all">
           <span className="block w-5 h-0.5 bg-white rounded"></span>
           <span className="block w-5 h-0.5 bg-white rounded"></span>
           <span className="block w-5 h-0.5 bg-white rounded"></span>
         </button>
-        <div className="flex items-center gap-2 bg-black/50 backdrop-blur rounded-xl px-4 py-2 border border-white/10">
+        <div className="flex items-center gap-2 bg-gray-900/80 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/20 shadow-lg">
           <Package size={14} className="text-blue-400" />
-          <span className="text-white text-sm font-medium">{summary.completedDeliveries}/{summary.totalDeliveries}</span>
-          <span className="text-gray-400 text-xs">· {summary.kmForecast}km</span>
+          <span className="text-white text-sm font-bold">{summary.completedDeliveries}/{summary.totalDeliveries}</span>
+          <span className="text-blue-300 text-xs">· {summary.kmForecast}km</span>
         </div>
       </div>
 
@@ -86,102 +80,118 @@ export default function DriverPage() {
       {menuOpen && <div className="absolute inset-0 bg-black/60 z-30" onClick={() => setMenuOpen(false)} />}
 
       {/* SIDEBAR */}
-      <div className={`absolute top-0 left-0 bottom-0 w-72 bg-gray-900 z-40 transform transition-all duration-300 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`absolute top-0 left-0 bottom-0 w-72 bg-gray-950 z-40 transform transition-all duration-300 ease-out ${menuOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl`}>
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 w-9 h-9 rounded-xl flex items-center justify-center"><Package className="text-white" size={18} /></div>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"><Package className="text-white" size={20} /></div>
             <div><h1 className="text-white font-bold text-base">Marins ERP</h1><p className="text-gray-400 text-xs">Painel do Motorista</p></div>
           </div>
-          <button onClick={() => setMenuOpen(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
+          <button onClick={() => setMenuOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"><X size={18} /></button>
         </div>
         <nav className="p-3 space-y-1">
           {MENU_ITEMS.map(item => (
-            <button key={item.id} onClick={() => openSection(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${section === item.id ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-white/5'}`}>
+            <button key={item.id} onClick={() => { setSection(item.id); setMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all active:scale-[0.98] ${section === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`}>
               <item.icon size={18} /> {item.label}
             </button>
           ))}
         </nav>
         <div className="absolute bottom-4 left-4 right-4">
-          <div className="flex items-center gap-2 px-4 py-3 bg-white/5 rounded-xl">
-            <User size={16} className="text-gray-400" />
-            <span className="text-sm text-gray-300 flex-1">João Motorista</span>
-            <div className="flex items-center gap-1 text-xs text-green-400"><Wifi size={10} /> Online</div>
+          <div className="flex items-center gap-2 px-4 py-3 bg-white/5 rounded-xl border border-white/5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center"><User size={14} className="text-white" /></div>
+            <span className="text-sm text-gray-200 font-medium flex-1">João Motorista</span>
+            <div className="flex items-center gap-1.5 text-xs bg-green-500/20 text-green-400 px-2.5 py-1 rounded-full border border-green-500/20"><Wifi size={10} /> Online</div>
           </div>
         </div>
       </div>
 
-      {/* CONTEUDO DA SECAO */}
+      {/* PAINEL INFERIOR (SLIDE-UP) */}
       {section !== 'map' && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 max-h-[70vh] overflow-y-auto rounded-t-3xl bg-gray-900/95 backdrop-blur-xl border-t border-white/10 p-5 animate-slide-up">
+        <div className="absolute bottom-0 left-0 right-0 z-20 max-h-[75vh] overflow-y-auto rounded-t-3xl bg-gray-950/95 backdrop-blur-xl border-t border-white/10 p-5 shadow-2xl animate-slide-up">
           <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4"></div>
 
-          {/* Resumo do Dia */}
+          {/* RESUMO */}
           {section === 'summary' && (
             <div>
               <h2 className="text-white font-bold text-lg mb-4">📊 Resumo do Dia</h2>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { icon: Package, label: 'Entregas', value: `${summary.completedDeliveries}/${summary.totalDeliveries}`, color: 'bg-blue-500' },
-                  { icon: Route, label: 'KM Previstos', value: `${summary.kmForecast} km`, color: 'bg-green-500' },
-                  { icon: Clock, label: 'Término', value: summary.estimatedEndTime, color: 'bg-purple-500' },
-                  { icon: TrendingUp, label: 'Status', value: summary.completedDeliveries === summary.totalDeliveries ? 'Concluído' : 'Em andamento', color: summary.completedDeliveries === summary.totalDeliveries ? 'bg-green-500' : 'bg-yellow-500' },
+                  { icon: Package, label: 'Entregas', value: `${summary.completedDeliveries}/${summary.totalDeliveries}`, color: 'from-blue-500 to-blue-600', desc: `${summary.totalDeliveries - summary.completedDeliveries} restantes` },
+                  { icon: Route, label: 'KM Previstos', value: `${summary.kmForecast} km`, color: 'from-green-500 to-green-600', desc: 'Rota do dia' },
+                  { icon: Clock, label: 'Término', value: summary.estimatedEndTime, color: 'from-purple-500 to-purple-600', desc: 'Previsão' },
+                  { icon: TrendingUp, label: 'Status', value: summary.completedDeliveries === summary.totalDeliveries ? '✅ FEITO' : '🔄 ROTA', color: summary.completedDeliveries === summary.totalDeliveries ? 'from-green-500 to-green-600' : 'from-yellow-500 to-orange-500', desc: summary.completedDeliveries === summary.totalDeliveries ? 'Parabéns!' : `${summary.completedDeliveries} entregues` },
                 ].map(c => (
-                  <div key={c.label} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                    <div className={`${c.color} w-8 h-8 rounded-lg flex items-center justify-center mb-2`}><c.icon className="text-white" size={16} /></div>
+                  <div key={c.label} className="bg-gray-800/80 rounded-xl p-4 border border-white/10">
+                    <div className={`bg-gradient-to-br ${c.color} w-9 h-9 rounded-xl flex items-center justify-center mb-3 shadow-lg`}><c.icon className="text-white" size={18} /></div>
                     <div className="text-white text-xl font-bold">{c.value}</div>
-                    <div className="text-gray-400 text-xs">{c.label}</div>
+                    <div className="text-gray-400 text-xs mt-0.5">{c.label}</div>
+                    <div className="text-gray-500 text-xs">{c.desc}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Entrega Atual */}
+          {/* ENTREGA ATUAL */}
           {section === 'delivery' && current && (
             <div>
               <h2 className="text-white font-bold text-lg mb-4">📍 Entrega Atual</h2>
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10 mb-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div><h3 className="text-white font-bold">{current.clientName}</h3><p className="text-gray-400 text-sm">{current.address}</p></div>
-                  <div className="text-right"><div className="text-gray-400 text-xs">Agendado</div><div className="text-white font-bold text-lg">{current.scheduledTime}</div></div>
+              <div className="bg-gray-800/80 rounded-xl p-5 border border-white/10 mb-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="text-blue-400 text-xs font-semibold mb-1">PRÓXIMA ENTREGA</div>
+                    <h3 className="text-white font-bold text-lg">{current.clientName}</h3>
+                    <p className="text-gray-300 text-sm mt-0.5">{current.address}</p>
+                  </div>
+                  <div className="text-right bg-gray-900/80 rounded-xl px-4 py-2">
+                    <div className="text-gray-400 text-xs">Agendado</div>
+                    <div className="text-white font-bold text-xl">{current.scheduledTime}</div>
+                  </div>
                 </div>
-                {current.observations && <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-3 text-sm text-yellow-300">📝 {current.observations}</div>}
+                {current.observations && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 mb-2 text-sm text-yellow-300 flex items-start gap-2">
+                    <span>📝</span> <span>{current.observations}</span>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {[
-                  { status: 'delivered' as const, label: 'Entregue', icon: CheckCircle, color: 'bg-green-500' },
-                  { status: 'absent' as const, label: 'Ausente', icon: X, color: 'bg-yellow-500' },
-                  { status: 'refused' as const, label: 'Recusado', icon: HelpCircle, color: 'bg-red-500' },
-                  { status: 'problem' as const, label: 'Problema', icon: AlertTriangle, color: 'bg-orange-500' },
-                ].map(a => (
-                  <button key={a.status} onClick={() => updateDeliveryStatus(current.id, a.status)}
-                    className={`${a.color} text-white py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2`}>
-                    <a.icon size={16} /> {a.label}
-                  </button>
-                ))}
+                <button onClick={() => updateDeliveryStatus(current.id, 'delivered')} className="bg-green-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-lg shadow-green-900/30"><CheckCircle size={18} /> Entregue</button>
+                <button onClick={() => updateDeliveryStatus(current.id, 'absent')} className="bg-yellow-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-yellow-700 active:scale-95 transition-all"><X size={18} /> Ausente</button>
+                <button onClick={() => updateDeliveryStatus(current.id, 'refused')} className="bg-red-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-700 active:scale-95 transition-all"><HelpCircle size={18} /> Recusado</button>
+                <button onClick={() => updateDeliveryStatus(current.id, 'problem')} className="bg-orange-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-orange-700 active:scale-95 transition-all"><AlertTriangle size={18} /> Problema</button>
               </div>
             </div>
           )}
 
-          {/* Documentos */}
+          {/* DOCUMENTOS */}
           {section === 'documents' && (
             <div>
-              <h2 className="text-white font-bold text-lg mb-4">📄 Documentos</h2>
-              {['CT-e', 'MDF-e', 'NF-e', 'Seguro'].map(doc => (
-                <div key={doc} className="flex items-center justify-between bg-white/5 rounded-xl p-3 border border-white/10 mb-2">
-                  <div className="flex items-center gap-3"><FileText size={18} className="text-blue-400" /><span className="text-white text-sm">{doc}</span><span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Válido</span></div>
-                  <button className="text-blue-400 text-sm">Ver</button>
+              <h2 className="text-white font-bold text-lg mb-4">📄 Documentos do Veículo</h2>
+              {[
+                { name: 'CT-e', status: 'Válido', color: 'text-green-400', bg: 'bg-green-500/10' },
+                { name: 'MDF-e', status: 'Válido', color: 'text-green-400', bg: 'bg-green-500/10' },
+                { name: 'NF-e', status: 'Pendente', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+                { name: 'Seguro', status: 'Válido', color: 'text-green-400', bg: 'bg-green-500/10' },
+              ].map(doc => (
+                <div key={doc.name} className="flex items-center justify-between bg-gray-800/80 rounded-xl p-4 border border-white/10 mb-2">
+                  <div className="flex items-center gap-3">
+                    <FileText size={20} className="text-blue-400" />
+                    <div>
+                      <div className="text-white font-medium text-sm">{doc.name}</div>
+                      <span className={`text-xs ${doc.color} ${doc.bg} px-2 py-0.5 rounded-full mt-1 inline-block`}>{doc.status}</span>
+                    </div>
+                  </div>
+                  <button className="text-blue-400 text-sm font-medium hover:text-blue-300">Visualizar</button>
                 </div>
               ))}
-              <button className="w-full mt-3 py-3 border-2 border-dashed border-white/10 rounded-xl text-sm text-gray-400"><Camera size={16} className="inline mr-2" /> Digitalizar</button>
+              <button className="w-full mt-3 py-4 border-2 border-dashed border-white/10 rounded-xl text-sm text-gray-400 hover:border-blue-500/50 hover:text-blue-400 transition-all flex items-center justify-center gap-2"><Camera size={18} /> Digitalizar Documento</button>
             </div>
           )}
 
-          {/* Chat / Comunicação */}
+          {/* CHAT */}
           {section === 'chat' && <ChatSection />}
 
-          {/* Checklist */}
+          {/* CHECKLIST */}
           {section === 'checklist' && (
             <div>
               <h2 className="text-white font-bold text-lg mb-4">📋 Checklist Diário</h2>
@@ -189,10 +199,10 @@ export default function DriverPage() {
             </div>
           )}
 
-          {/* Despesas */}
+          {/* DESPESAS */}
           {section === 'expenses' && (
             <div>
-              <h2 className="text-white font-bold text-lg mb-4">💰 Despesas</h2>
+              <h2 className="text-white font-bold text-lg mb-4">💰 Registrar Despesa</h2>
               <ExpenseForm onClose={() => setSection('map')} />
             </div>
           )}
@@ -203,7 +213,7 @@ export default function DriverPage() {
 }
 
 // ============================================================
-// CHAT SECTION
+// CHAT
 // ============================================================
 function ChatSection() {
   const messages = useDriverStore((s) => s.messages);
@@ -219,11 +229,11 @@ function ChatSection() {
   return (
     <div>
       <h2 className="text-white font-bold text-lg mb-4">💬 Comunicação</h2>
-      <div className="h-48 overflow-y-auto mb-3 space-y-2 bg-black/20 rounded-xl p-3">
+      <div className="h-52 overflow-y-auto mb-3 space-y-3 bg-gray-900/60 rounded-xl p-3 border border-white/5">
         {messages.map(m => (
           <div key={m.id} className={`flex ${m.sender === 'driver' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.sender === 'driver' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-200'}`}>
-              <div className="text-xs opacity-70 mb-0.5">{m.sender === 'central' ? 'Central' : m.sender === 'client' ? 'Cliente' : 'Você'}</div>
+            <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.sender === 'driver' ? 'bg-blue-600 text-white rounded-br-md' : 'bg-gray-800 text-gray-200 rounded-bl-md border border-white/10'}`}>
+              <div className="text-xs font-semibold opacity-70 mb-1">{m.sender === 'central' ? 'Central' : m.sender === 'client' ? 'Cliente' : m.sender === 'support' ? 'Suporte' : 'Você'}</div>
               <div>{m.text}</div>
               <div className="text-xs opacity-50 text-right mt-1">{new Date(m.timestamp).toLocaleTimeString()}</div>
             </div>
@@ -232,18 +242,22 @@ function ChatSection() {
       </div>
       <div className="flex gap-2">
         <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()}
-          className="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500" placeholder="Digite sua mensagem..." />
-        <button onClick={send} className="bg-blue-600 text-white px-5 rounded-xl text-sm font-medium">Enviar</button>
+          className="flex-1 bg-gray-800 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50" placeholder="Digite sua mensagem..." />
+        <button onClick={send} className="bg-blue-600 text-white px-5 rounded-xl text-sm font-bold hover:bg-blue-700 active:scale-95 transition-all">Enviar</button>
       </div>
       <div className="flex gap-2 mt-3">
-        {['Central', 'Cliente', 'Suporte'].map(label => (
-          <button key={label} onClick={() => setText(`Olá ${label}! `)}
-            className="flex-1 py-2 border border-white/10 rounded-xl text-xs text-gray-400 hover:bg-white/5 flex items-center justify-center gap-1">
-            <Phone size={12} /> {label}
+        {[
+          { label: 'Central', icon: Phone },
+          { label: 'Cliente', icon: Phone },
+          { label: 'Suporte', icon: Phone },
+        ].map(item => (
+          <button key={item.label} onClick={() => setText(`Olá ${item.label}! `)}
+            className="flex-1 py-3 bg-gray-800 border border-white/10 rounded-xl text-xs text-gray-300 hover:bg-gray-700 active:scale-95 transition-all flex items-center justify-center gap-2 font-medium">
+            <item.icon size={14} className="text-blue-400" /> {item.label}
           </button>
         ))}
       </div>
-      <button className="mt-3 w-full bg-red-600 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-700">
+      <button className="mt-4 w-full bg-red-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-700 active:scale-95 transition-all shadow-lg shadow-red-900/30">
         <AlertTriangle size={18} /> EMERGÊNCIA
       </button>
     </div>
