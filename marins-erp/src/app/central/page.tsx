@@ -31,6 +31,7 @@ import AcompanhamentoClientes from '@/components/central/AcompanhamentoClientes'
 
 export default function CentralPage() {
   const [data, setData] = useState<any>(null);
+  const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -79,7 +80,7 @@ export default function CentralPage() {
                 const statusIcon: Record<string, string> = { EM_SEPARACAO: '📦', SAIU_PARA_ENTREGA: '🚚', PROXIMO_CLIENTE: '📍', ENTREGUE: '✅' };
                 const statusColor: Record<string, string> = { EM_SEPARACAO: 'border-l-yellow-500', SAIU_PARA_ENTREGA: 'border-l-blue-500', PROXIMO_CLIENTE: 'border-l-green-500', ENTREGUE: 'border-l-gray-500' };
                 return (
-                  <div key={p.pedidoId || p.id} className={'bg-gray-900/80 rounded-xl p-4 border border-white/10 border-l-4 ' + (statusColor[p.status] || 'border-l-yellow-500')}>
+                  <div key={p.pedidoId || p.id} onClick={() => setSelectedDelivery(p)} className={'cursor-pointer hover:bg-gray-800/80 transition-colors bg-gray-900/80 rounded-xl p-4 border border-white/10 border-l-4 ' + (statusColor[p.status] || 'border-l-yellow-500')}>
                     <div className="flex items-start justify-between mb-1">
                       <span className="text-white font-bold text-sm truncate">{p.clienteNome || p.cliente || '—'}</span>
                       <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{statusIcon[p.status] || '📋'}</span>
