@@ -59,59 +59,44 @@ export default function CentralPage() {
           <div className="text-center py-20 text-gray-500">Carregando...</div>
         ) : (
           <>
-            {/* Cards de resumo */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               {[
-                { icon: Package, label: 'Total', value: data?.resumo?.total || 0, color: 'text-blue-400' },
-                { icon: Truck, label: 'Em Rota', value: data?.resumo?.emRota || 0, color: 'text-blue-400' },
-                { icon: MapPin, label: 'Próximo', value: data?.resumo?.proximoCliente || 0, color: 'text-green-400' },
-                { icon: Clock, label: 'Médio', value: `${data?.resumo?.tempoMedio || 0}min`, color: 'text-purple-400' },
-                { icon: TrendingUp, label: 'Entregues', value: data?.resumo?.entregue || 0, color: 'text-green-400' },
+                { icon: '📦', label: 'Total', value: data?.resumo?.total || 0, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                { icon: '🚚', label: 'Em Rota', value: data?.resumo?.emRota || 0, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                { icon: '📍', label: 'Próximo', value: data?.resumo?.proximoCliente || 0, color: 'text-green-400', bg: 'bg-green-500/10' },
+                { icon: '✅', label: 'Entregues', value: data?.resumo?.entregue || 0, color: 'text-green-400', bg: 'bg-green-500/10' },
               ].map(c => (
-                <div key={c.label} className="bg-gray-900/80 rounded-xl p-4 border border-white/10">
-                  <c.icon size={18} className={c.color} />
-                  <div className="text-2xl font-bold mt-1">{c.value}</div>
-                  <div className="text-xs text-gray-500">{c.label}</div>
+                <div key={c.label} className={'bg-gray-900/80 rounded-xl p-3 border border-white/10 text-center ' + c.bg}>
+                  <div className={'text-lg ' + c.color}>{c.icon}</div>
+                  <div className="text-white font-bold text-xl">{c.value}</div>
+                  <div className="text-gray-500 text-xs">{c.label}</div>
                 </div>
               ))}
             </div>
 
-            {/* Lista de entregas */}
-            <div className="bg-gray-900/80 rounded-2xl border border-white/10 overflow-hidden">
-              <div className="p-5 border-b border-white/10 flex items-center justify-between">
-                <h2 className="font-bold">📋 Entregas do Dia</h2>
-                <span className="text-xs text-gray-500">{data?.pedidos?.length || 0} pedidos</span>
-              </div>
-              <div className="divide-y divide-white/5">
-                {(data?.pedidos || []).map((p: PedidoResumo) => (
-                  <div key={p.pedidoId} className="p-4 hover:bg-white/5 transition-colors">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="font-bold text-sm">{p.clienteNome}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{p.enderecoCompleto}</div>
-                      </div>
-                      <div className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_CORES[p.status] || ''}`}>
-                        {STATUS_LABELS[p.status] || p.status}
-                      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {(data?.pedidos || []).map((p: any) => {
+                const statusIcon: Record<string, string> = { EM_SEPARACAO: '📦', SAIU_PARA_ENTREGA: '🚚', PROXIMO_CLIENTE: '📍', ENTREGUE: '✅' };
+                const statusColor: Record<string, string> = { EM_SEPARACAO: 'border-l-yellow-500', SAIU_PARA_ENTREGA: 'border-l-blue-500', PROXIMO_CLIENTE: 'border-l-green-500', ENTREGUE: 'border-l-gray-500' };
+                return (
+                  <div key={p.pedidoId || p.id} className={'bg-gray-900/80 rounded-xl p-4 border border-white/10 border-l-4 ' + (statusColor[p.status] || 'border-l-yellow-500')}>
+                    <div className="flex items-start justify-between mb-1">
+                      <span className="text-white font-bold text-sm truncate">{p.clienteNome || p.cliente || '—'}</span>
+                      <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{statusIcon[p.status] || '📋'}</span>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>🚚 {p.distanciaRestante?.toFixed(1)} km</span>
-                      <span>⏱️ {p.tempoRestante} min</span>
+                    <div className="text-gray-400 text-xs truncate mb-1">{p.enderecoCompleto || p.endereco || '—'}</div>
+                    <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                      {p.distanciaRestante > 0 && <span>🚚 {p.distanciaRestante.toFixed(1)}km</span>}
+                      {p.tempoRestante > 0 && <span>⏱️ {p.tempoRestante}min</span>}
                       <span className="text-gray-600">#{p.pedidoId}</span>
                     </div>
-                    <div className="flex gap-2 mt-2">
-                      <button className="text-xs bg-blue-600/20 text-blue-400 px-3 py-1 rounded-lg hover:bg-blue-600/30">📍 Rota</button>
-                      <button className="text-xs bg-green-600/20 text-green-400 px-3 py-1 rounded-lg hover:bg-green-600/30"><Phone size={12} className="inline" /> Cliente</button>
-                      <button className="text-xs bg-red-600/20 text-red-400 px-3 py-1 rounded-lg hover:bg-red-600/30">Cancelar</button>
-                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </>
         )}
-        <div className="max-w-7xl mx-auto px-5 pb-8"><AcompanhamentoClientes /></div>
-</main>
+      </main>
     </div>
   );
 }
