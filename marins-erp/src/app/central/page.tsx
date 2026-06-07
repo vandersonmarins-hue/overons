@@ -7,8 +7,7 @@ import AcompanhamentoClientes from '@/components/central/AcompanhamentoClientes'
 import { loginMaster, logoutMaster, isMaster, getPermissoes } from '@/lib/permissoes';
 
 export default function CentralPage() {
-  const [autenticado, setAutenticado] = useState(false);
-  const [showLogin, setShowLogin] = useState(!isMaster());
+  const [autenticado, setAutenticado] = useState(isMaster());
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [data, setData] = useState<any>(null);
@@ -18,16 +17,22 @@ export default function CentralPage() {
   useEffect(() => { setAutenticado(isMaster()); }, []);
 
   const entrar = () => {
-    if (loginMaster(senha)) {
-      setAutenticado(true);
-      setShowLogin(false);
-      setErro('');
-    } else {
-      setErro('Senha incorreta');
-    }
+    if (loginMaster(senha)) { setAutenticado(true); setErro(''); }
+    else { setErro('Senha incorreta'); }
   };
 
-  if (showLogin) {
+  const load = async () => {
+    try { const r = await fetch('/api/central/rastreamento'); if (r.ok) setData(await r.json()); } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
+
+  const statusIcon: Record<string, string> = { EM_SEPARACAO: '📦', SAIU_PARA_ENTREGA: '🚚', PROXIMO_CLIENTE: '📍', ENTREGUE: '✅' };
+  const statusColor: Record<string, string> = { EM_SEPARACAO: 'border-l-yellow-500', SAIU_PARA_ENTREGA: 'border-l-blue-500', PROXIMO_CLIENTE: 'border-l-green-500', ENTREGUE: 'border-l-gray-500' };
+  const statusLabel: Record<string, string> = { EM_SEPARACAO: '📦 Separação', SAIU_PARA_ENTREGA: '🚚 Em Rota', PROXIMO_CLIENTE: '📍 Próximo', ENTREGUE: '✅ Entregue' };
+
+  if (!autenticado) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
         <div className="bg-gray-900/80 rounded-2xl p-8 border border-white/10 max-w-sm w-full text-center">
@@ -46,19 +51,6 @@ export default function CentralPage() {
       </div>
     );
   }
-
-  if (!autenticado) return null;
-
-  const load = async () => {
-    try { const r = await fetch('/api/central/rastreamento'); if (r.ok) setData(await r.json()); } catch {}
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
-
-  const statusIcon: Record<string, string> = { EM_SEPARACAO: '📦', SAIU_PARA_ENTREGA: '🚚', PROXIMO_CLIENTE: '📍', ENTREGUE: '✅' };
-  const statusColor: Record<string, string> = { EM_SEPARACAO: 'border-l-yellow-500', SAIU_PARA_ENTREGA: 'border-l-blue-500', PROXIMO_CLIENTE: 'border-l-green-500', ENTREGUE: 'border-l-gray-500' };
-  const statusLabel: Record<string, string> = { EM_SEPARACAO: '📦 Separação', SAIU_PARA_ENTREGA: '🚚 Em Rota', PROXIMO_CLIENTE: '📍 Próximo', ENTREGUE: '✅ Entregue' };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">

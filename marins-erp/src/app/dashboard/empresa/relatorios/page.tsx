@@ -5,8 +5,7 @@ import { FileText, Fuel, CheckCircle, TrendingUp, Download, Filter, Shield } fro
 import { isMaster, loginMaster } from '@/lib/permissoes';
 
 export default function CompanyReportsPage() {
-  const [autenticado, setAutenticado] = useState(false);
-  const [showLogin, setShowLogin] = useState(!isMaster());
+  const [autenticado, setAutenticado] = useState(isMaster());
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
 
@@ -20,14 +19,13 @@ export default function CompanyReportsPage() {
   const entrar = () => {
     if (loginMaster(senha)) {
       setAutenticado(true);
-      setShowLogin(false);
       setErro('');
     } else {
       setErro('Senha incorreta');
     }
   };
 
-  if (showLogin) {
+  if (!autenticado) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
         <div className="bg-gray-900/80 rounded-2xl p-8 border border-white/10 max-w-sm w-full text-center">
@@ -46,8 +44,6 @@ export default function CompanyReportsPage() {
       </div>
     );
   }
-
-  if (!autenticado) return null;
 
   useEffect(() => {
     setLoading(true);
