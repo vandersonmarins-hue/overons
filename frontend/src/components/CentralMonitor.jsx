@@ -3,26 +3,41 @@ import './CentralMonitor.css';
 
 export default function CentralMonitor() {
   const [pedidos, setPedidos] = useState([]);
-  const [stats, setStats] = useState({ total: 0, emRota: 0, entregue: 0 });
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
-      const r = await fetch('/api/central/rastreamento');
+      // Busca entregas reais do Overons
+      const r = await fetch('/api/entregas');
       if (r.ok) {
-        const d = await r.json();
-        setPedidos(d.pedidos || []);
-        setStats(d.resumo || {});
+        const entregas = await r.json();
+        setPedidos(entregas || []);
       }
     } catch {}
     setLoading(false);
   };
 
-  useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
+  useEffect(() => { load(); const id = setInterval(load, 10000); return () => clearInterval(id); }, []);
 
-  const statusIcon = (s) => {
-    const map = { EM_SEPARACAO: '📦', SAIU_PARA_ENTREGA: '🚚', PROXIMO_CLIENTE: '📍', ENTREGUE: '✅' };
-    return map[s] || '📋';
+  const stats = {
+    total: pedidos.length,
+    pendentes: pedidos.filter(p => p.status === 'pendente' || p.status === 'AGUARDANDO_CONFIRMACAO').length,
+    aceitas: pedidos.filter(p => p.status === 'aceita' || p.status === 'SAIU_PARA_ENTREGA' || p.status === 'PROXIMO_CLIENTE').length,
+    concluidas: pedidos.filter(p => p.status === 'concluida' || p.status === 'ENTREGUE').length,
+  };
+
+  const getStatus = (s) => {
+    const map = {
+      pendente: { icon: '⏳', label: 'Aguardando', color: '#fdcb6e' },
+      AGUARDANDO_CONFIRMACAO: { icon: '⏳', label: 'Aguardando', color: '#fdcb6e' },
+      aceita: { icon: '✅', label: 'Aceita', color: '#00b894' },
+      SAIU_PARA_ENTREGA: { icon: '🚚', label: 'Em Rota', color: '#0984e3' },
+      PROXIMO_CLIENTE: { icon: '📍', label: 'Proximo', color: '#00b894' },
+      concluida: { icon: '✅', label: 'Concluida', color: '#00b894' },
+      ENTREGUE: { icon: '✅', label: 'Entregue', color: '#00b894' },
+      recusada: { icon: '❌', label: 'Recusada', color: '#d63031' },
+    };
+    return map[s] || { icon: '📋', label: s || 'Pendente', color: '#636e72' };
   };
 
   return (
@@ -35,31 +50,37 @@ export default function CentralMonitor() {
       </div>
 
       {/* Stats */}
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:14}}>
-        <div className="central-card"><span className="central-num">{stats.total || 0}</span><span className="central-label">Total</span></div>
-        <div className="central-card"><span className="central-num">{stats.emRota || 0}</span><span className="central-label">Em Rota</span></div>
-        <div className="central-card"><span className="central-num">{stats.entregue || 0}</span><span className="central-label">Entregues</span></div>
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:6, marginBottom:14}}>
+        <div className="central-card"><span className="central-num">{stats.total}</span><span className="central-label">Total</span></div>
+        <div className="central-card"><span className="central-num">{stats.pendentes}</span><span className="central-label">Pendentes</span></div>
+        <div className="central-card"><span className="central-num">{stats.aceitas}</span><span className="central-label">Em Andamento</span></div>
+        <div className="central-card"><span className="central-num">{stats.concluidas}</span><span className="central-label">Concluidas</span></div>
       </div>
 
-      {/* Lista */}
+      {/* Lista de entregas */}
       <div style={{maxHeight:400, overflowY:'auto'}}>
-        {pedidos.length === 0 ? (
-          <div className="central-empty">Nenhuma entrega ativa</div>
+        {loading ? (
+          <div className="central-empty">Carregando...</div>
+        ) : pedidos.length === 0 ? (
+          <div className="central-empty">Nenhuma entrega registrada</div>
         ) : (
-          pedidos.map((p) => (
-            <div key={p.pedidoId} className="central-item">
-              <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
-                <span className="central-cliente">{p.clienteNome}</span>
-                <span className="central-status">{statusIcon(p.status)} {p.status?.replace(/_/g, ' ')}</span>
+          pedidos.map((p, i) => {
+            const st = getStatus(p.status);
+            return (
+              <div key={p.id || p.pedidoId || i} className="central-item" style={{borderLeftColor: st.color}}>
+                <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
+                  <span className="central-cliente">{p.cliente || p.clienteNome || '—'}</span>
+                  <span className="central-status" style={{background: st.color + '18', color: st.color, fontSize:10}}>{st.icon} {st.label}</span>
+                </div>
+                <div className="central-endereco">{p.endereco || p.enderecoCompleto || '—'}</div>
+                {p.chaveAcesso && <div style={{fontSize:10, color:'#fdcb6e', marginTop:2}}>🔑 {p.chaveAcesso}</div>}
+                <div style={{display:'flex', gap:8, fontSize:10, color:'var(--text-muted)', marginTop:2}}>
+                  {p.pedidoId && <span>#{p.pedidoId}</span>}
+                  {p.criadaEm && <span>{new Date(p.criadaEm).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</span>}
+                </div>
               </div>
-              <div className="central-endereco">{p.enderecoCompleto}</div>
-              <div style={{display:'flex', gap:12, fontSize:11, color:'var(--text-muted)', marginTop:4}}>
-                <span>🚚 {p.distanciaRestante?.toFixed(1)} km</span>
-                <span>⏱️ {p.tempoRestante} min</span>
-                <span>#{p.pedidoId}</span>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
