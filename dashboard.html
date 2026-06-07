@@ -103,6 +103,8 @@
                 const marker = L.marker([latitude, longitude]).addTo(map);
                 marker.bindPopup(`<b>Entregador ${driverId}</b>`);
                 markers.set(driverId, marker);
+                // Centraliza o mapa no primeiro entregador que aparecer
+                map.setView([latitude, longitude], map.getZoom());
             }
             
             // Atualizar lista
