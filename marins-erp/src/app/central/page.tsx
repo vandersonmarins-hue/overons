@@ -26,6 +26,7 @@ const STATUS_LABELS: Record<string, string> = {
   ENTREGUE: '✅ Entregue',
 };
 
+import Link from 'next/link';
 import AcompanhamentoClientes from '@/components/central/AcompanhamentoClientes';
 
 export default function CentralPage() {
@@ -46,6 +47,7 @@ export default function CentralPage() {
           <div className="bg-blue-600 w-9 h-9 rounded-xl flex items-center justify-center"><Truck className="text-white" size={18} /></div>
           <h1 className="font-bold text-lg">Central de Monitoramento</h1>
         </div>
+        <Link href="/central/nova-entrega" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 mr-2">+ Nova Entrega</Link>
         <button onClick={load} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-white/5 px-4 py-2 rounded-xl"><RefreshCw size={14} /> Atualizar</button>
       </header>
 
