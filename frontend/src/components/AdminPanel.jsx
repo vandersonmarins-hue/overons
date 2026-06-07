@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../hooks/useApi';
+import { api, getEmpresaId } from '../hooks/useApi';
 import './AdminPanel.css';
 
 export default function AdminPanel() {
@@ -75,25 +75,57 @@ export default function AdminPanel() {
             }}>+ Nova Empresa</button>
           </div>
           <table className="admin-table">
-            <thead><tr><th>Empresa</th><th>CNPJ</th><th>Responsável</th><th>Plano</th><th>Status</th><th>Vencimento</th><th>Ações</th></tr></thead>
+            <thead><tr><th>Empresa</th><th>Plano</th><th>Status</th><th>Motoristas</th><th>Limite</th><th>Ações</th></tr></thead>
             <tbody>
-              {companies.map(c => (
-                <tr key={c.id}>
-                  <td><b>{c.nome}</b></td>
-                  <td className="admin-cell-mono">{c.cnpj}</td>
-                  <td>{c.responsavel}</td>
-                  <td><span className="admin-badge">{c.plano}</span></td>
-                  <td><span className={`admin-status ${c.status}`}>{c.status === 'ativo' ? '🟢 Ativo' : c.status === 'bloqueado' ? '🔴 Bloqueado' : c.status === 'trial' ? '🟡 Trial' : '⚪ Cancelado'}</span></td>
-                  <td className="admin-cell-mono">{c.ultimo_vencimento || '—'}</td>
-                  <td>
-                    {c.status !== 'bloqueado' ? (
-                      <button className="admin-btn small danger" onClick={() => blockCompany(c.id)}>🔒 Bloquear</button>
-                    ) : (
-                      <button className="admin-btn small success" onClick={() => unblockCompany(c.id)}>🔓 Desbloquear</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {companies.map(c => {
+                const pct = c.max_entregadores > 0 ? Math.round((c.motoristas_cadastrados || 0) / c.max_entregadores * 100) : 0;
+                const barColor = pct >= 90 ? '#d63031' : pct >= 70 ? '#fdcb6e' : '#00b894';
+                return (
+                  <tr key={c.id}>
+                    <td><b>{c.nome}</b><br/><span className="admin-cell-small">{c.responsavel}</span></td>
+                    <td>
+                      <select value={c.plano} onChange={e => {
+                        const planos = { trial: 3, basico: 5, profissional: 20, enterprise: 100 };
+                        const veic = { trial: 2, basico: 3, profissional: 10, enterprise: 50 };
+                        const p = e.target.value;
+                        fetch(`/api/admin/companies/${c.id}/plan`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({plano: p, max_entregadores: planos[p], max_veiculos: veic[p]}) }).then(() => loadAll());
+                      }} style={{padding:'2px 6px', borderRadius:4, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text)', fontSize:11}}>
+                        <option value="trial">Trial</option>
+                        <option value="basico">Básico</option>
+                        <option value="profissional">Profissional</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
+                    </td>
+                    <td><span className={`admin-status ${c.status}`}>{c.status === 'ativo' ? '🟢' : c.status === 'bloqueado' ? '🔴' : c.status === 'trial' ? '🟡' : '⚪'}</span></td>
+                    <td style={{minWidth:120}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{fontSize:12,fontWeight:'bold',color: barColor}}>{c.motoristas_logados || 0}/{c.motoristas_cadastrados || 0}</span>
+                        <div style={{flex:1,height:6,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+                          <div style={{height:'100%',width:pct+'%',background:barColor,borderRadius:3,transition:'width 0.3s'}}></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <input type="number" value={c.max_entregadores || 5} min={1} max={999}
+                        onChange={e => fetch(`/api/admin/companies/${c.id}/plan`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({max_entregadores: parseInt(e.target.value)}) }).then(() => loadAll())}
+                        style={{width:50,padding:'2px 4px',borderRadius:4,border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:11,textAlign:'center'}} />
+                    </td>
+                    <td>
+                      <div style={{display:'flex',gap:4}}>
+                        {c.status !== 'bloqueado' ? (
+                          <button className="admin-btn small danger" onClick={() => blockCompany(c.id)}>🚫</button>
+                        ) : (
+                          <button className="admin-btn small success" onClick={() => unblockCompany(c.id)}>✅</button>
+                        )}
+                        <button className="admin-btn small" style={{background:'var(--accent)',color:'#fff'}} onClick={() => {
+                          const v = prompt('Valor pago:', '0');
+                          if (v) fetch('/api/admin/payments', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({empresa_id: c.id, valor: parseFloat(v), metodo: 'pix'}) }).then(() => loadAll());
+                        }}>💰</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

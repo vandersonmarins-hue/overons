@@ -742,7 +742,9 @@ app.get('/api/admin/companies', (req, res) => {
     const empresas = db.prepare(`
       SELECT c.*, 
         (SELECT COUNT(*) FROM payments WHERE empresa_id = c.id AND status = 'atrasado') as pagamentos_atrasados,
-        (SELECT data_vencimento FROM payments WHERE empresa_id = c.id ORDER BY data_vencimento DESC LIMIT 1) as ultimo_vencimento
+        (SELECT data_vencimento FROM payments WHERE empresa_id = c.id ORDER BY data_vencimento DESC LIMIT 1) as ultimo_vencimento,
+        (SELECT COUNT(*) FROM entregadores WHERE empresa_id = c.id AND status = 'online') as motoristas_logados,
+        (SELECT COUNT(*) FROM entregadores WHERE empresa_id = c.id) as motoristas_cadastrados
       FROM companies c ORDER BY c.criada_em DESC
     `).all();
     res.json(empresas);
@@ -810,6 +812,24 @@ app.post('/api/admin/payments', (req, res) => {
 
     db.prepare('INSERT INTO payments (id, empresa_id, valor, data_pagamento, data_vencimento, metodo, status, pago_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, empresa_id, valor, hoje, hoje, metodo || 'pix', 'pago', hoje);
     res.json({ id, message: 'Pagamento registrado' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Atualizar plano/limites da empresa
+app.put('/api/admin/companies/:id/plan', (req, res) => {
+  try {
+    const { plano, max_entregadores, max_veiculos } = req.body;
+    if (!plano && !max_entregadores && !max_veiculos) {
+      return res.status(400).json({ error: 'Informe plano, max_entregadores ou max_veiculos' });
+    }
+    const updates = [];
+    const params = [];
+    if (plano) { updates.push('plano = ?'); params.push(plano); }
+    if (max_entregadores !== undefined) { updates.push('max_entregadores = ?'); params.push(max_entregadores); }
+    if (max_veiculos !== undefined) { updates.push('max_veiculos = ?'); params.push(max_veiculos); }
+    params.push(req.params.id);
+    db.prepare(`UPDATE companies SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    res.json({ message: 'Plano atualizado com sucesso' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

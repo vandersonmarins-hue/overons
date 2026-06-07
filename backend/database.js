@@ -211,13 +211,15 @@ function seed() {
   // ===== EMPRESAS (sempre tenta popular se vazio) =====
   const countEmpresas = db.prepare('SELECT COUNT(*) as total FROM companies').get();
   if (countEmpresas.total === 0) {
+    // Planos: basico=5 motoristas, profissional=20, enterprise=100
+    const planosLimites = { trial: { entregadores: 3, veiculos: 2 }, basico: { entregadores: 5, veiculos: 3 }, profissional: { entregadores: 20, veiculos: 10 }, enterprise: { entregadores: 100, veiculos: 50 } };
     const empresas = [
-      { id: 'EMP_001', nome: 'Overons Logistica', cnpj: '00.000.000/0001-01', responsavel: 'Administrador', email: 'admin@overons.com.br', telefone: '(11) 3000-0001', plano: 'enterprise', status: 'ativo', max_entregadores: 100, max_veiculos: 50 },
-      { id: 'EMP_002', nome: 'TechExpress Entregas', cnpj: '11.111.111/0001-11', responsavel: 'Carlos Silva', email: 'carlos@techexpress.com', telefone: '(11) 3000-0002', plano: 'profissional', status: 'ativo', max_entregadores: 30, max_veiculos: 15 },
-      { id: 'EMP_003', nome: 'RapidDelivery Ltda', cnpj: '22.222.222/0001-22', responsavel: 'Ana Oliveira', email: 'ana@rapiddelivery.com', telefone: '(11) 3000-0003', plano: 'basico', status: 'bloqueado', max_entregadores: 10, max_veiculos: 5 },
-      { id: 'EMP_004', nome: 'FoodExpress Brasil', cnpj: '33.333.333/0001-33', responsavel: 'Pedro Santos', email: 'pedro@foodexpress.com', telefone: '(11) 3000-0004', plano: 'basico', status: 'ativo', max_entregadores: 15, max_veiculos: 8 },
-      { id: 'EMP_005', nome: 'LogiMove Transportes', cnpj: '44.444.444/0001-44', responsavel: 'Maria Costa', email: 'maria@logimove.com', telefone: '(11) 3000-0005', plano: 'trial', status: 'trial', max_entregadores: 5, max_veiculos: 3 },
-    ];
+      { id: 'EMP_001', nome: 'Overons Logistica', cnpj: '00.000.000/0001-01', responsavel: 'Administrador', email: 'admin@overons.com.br', telefone: '(11) 3000-0001', plano: 'enterprise', status: 'ativo' },
+      { id: 'EMP_002', nome: 'TechExpress Entregas', cnpj: '11.111.111/0001-11', responsavel: 'Carlos Silva', email: 'carlos@techexpress.com', telefone: '(11) 3000-0002', plano: 'profissional', status: 'ativo' },
+      { id: 'EMP_003', nome: 'RapidDelivery Ltda', cnpj: '22.222.222/0001-22', responsavel: 'Ana Oliveira', email: 'ana@rapiddelivery.com', telefone: '(11) 3000-0003', plano: 'basico', status: 'bloqueado' },
+      { id: 'EMP_004', nome: 'FoodExpress Brasil', cnpj: '33.333.333/0001-33', responsavel: 'Pedro Santos', email: 'pedro@foodexpress.com', telefone: '(11) 3000-0004', plano: 'basico', status: 'ativo' },
+      { id: 'EMP_005', nome: 'LogiMove Transportes', cnpj: '44.444.444/0001-44', responsavel: 'Maria Costa', email: 'maria@logimove.com', telefone: '(11) 3000-0005', plano: 'trial', status: 'trial' },
+    ].map(e => ({ ...e, ...planosLimites[e.plano] }));
 
     const insEmpresa = db.prepare('INSERT INTO companies (id, nome, cnpj, responsavel, email, telefone, plano, status, max_entregadores, max_veiculos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     for (const e of empresas) insEmpresa.run(e.id, e.nome, e.cnpj, e.responsavel, e.email, e.telefone, e.plano, e.status, e.max_entregadores, e.max_veiculos);
