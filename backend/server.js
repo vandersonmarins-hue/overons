@@ -889,6 +889,72 @@ app.get('/api/admin/reports/inadimplencia', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==================== API: MENSAGENS VIA REST (FALLBACK) ====================
+
+// Enviar mensagem via REST (mais confiavel que Socket.IO)
+app.post('/api/send-message', (req, res) => {
+  try {
+    const { driverId, message, empresa } = req.body;
+    if (!driverId || !message) return res.status(400).json({ error: 'driverId e message obrigatorios' });
+
+    // Tenta enviar via Socket.IO primeiro
+    const d = drivers.get(driverId);
+    let entregue = false;
+
+    if (d && d.socketId) {
+      io.to(d.socketId).emit('new-message', {
+        type: 'text',
+        message,
+        audioUrl: null,
+        empresa: empresa || 'Empresa',
+        timestamp: new Date().toISOString(),
+      });
+      entregue = true;
+      console.log(`✅ Mensagem REST entregue via socket para ${driverId}`);
+    }
+
+    // Fallback: envia para TODOS os motoristas conectados (broadcast)
+    if (!entregue) {
+      let encontrados = 0;
+      for (const [id, info] of drivers) {
+        if (info.socketId && info.status === 'online') {
+          io.to(info.socketId).emit('new-message', {
+            type: 'text',
+            message: `${message} (para: ${driverId})`,
+            audioUrl: null,
+            empresa: empresa || 'Empresa',
+            timestamp: new Date().toISOString(),
+          });
+          encontrados++;
+        }
+      }
+      console.log(`📢 Mensagem enviada em broadcast para ${encontrados} motoristas online`);
+      entregue = encontrados > 0;
+    }
+
+    res.json({ entregue, motoristasOnline: Array.from(drivers.values()).filter(d => d.status === 'online').length });
+  } catch (err) {
+    console.error('Erro ao enviar mensagem:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Diagnostico: ver motoristas conectados
+app.get('/api/drivers-status', (req, res) => {
+  const lista = [];
+  for (const [id, info] of drivers) {
+    lista.push({
+      id,
+      nome: info.nome,
+      status: info.status,
+      hasSocketId: !!info.socketId,
+      lastSeen: info.lastSeen,
+    });
+  }
+  const sockets = [...io.sockets.sockets.keys()];
+  res.json({ totalMotoristas: lista.length, totalSockets: sockets.length, motoristas: lista });
+});
+
 // ==================== SERVE REACT BUILD ====================
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendDist)) {
