@@ -165,23 +165,20 @@
 
 .sidebar-nav {
   display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  gap: 3px;
-  padding: 8px 16px;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border, #1e1e3a);
   flex-shrink: 0;
-  scrollbar-width: none;
 }
-.sidebar-nav::-webkit-scrollbar { display: none; }
 .side-btn {
-  padding: 6px 12px;
+  padding: 5px 10px;
   white-space: nowrap;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: var(--text-muted, #888);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
