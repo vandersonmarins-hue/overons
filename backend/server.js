@@ -24,9 +24,24 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '..')));
 
 // ==================== DATABASE ====================
-const { db, migrate, seed } = require('./database');
-migrate();
-seed();
+const { initDatabase, getDb } = require('./database');
+let db;
+
+// Schema SQL (migracoes)
+const SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS companies (id TEXT PRIMARY KEY, nome TEXT NOT NULL, cnpj TEXT UNIQUE NOT NULL, responsavel TEXT NOT NULL, email TEXT NOT NULL, telefone TEXT, plano TEXT DEFAULT 'basico', status TEXT DEFAULT 'trial', max_entregadores INTEGER DEFAULT 10, max_veiculos INTEGER DEFAULT 5, logo_url TEXT, criada_em TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, empresa_id TEXT NOT NULL, plano TEXT NOT NULL, valor REAL NOT NULL DEFAULT 0, data_inicio TEXT NOT NULL, data_vencimento TEXT NOT NULL, data_cancelamento TEXT, status TEXT DEFAULT 'ativa');
+CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, empresa_id TEXT NOT NULL, subscription_id TEXT, valor REAL NOT NULL, data_pagamento TEXT, data_vencimento TEXT NOT NULL, metodo TEXT DEFAULT 'pix', status TEXT DEFAULT 'pendente', comprovante_url TEXT, observacao TEXT, pago_em TEXT);
+CREATE TABLE IF NOT EXISTS entregadores (id TEXT PRIMARY KEY, empresa_id TEXT NOT NULL DEFAULT 'EMP_001', nome TEXT NOT NULL, telefone TEXT, veiculo_id TEXT, status TEXT DEFAULT 'offline', cadastro_em TEXT DEFAULT (datetime('now')), foto_url TEXT);
+CREATE TABLE IF NOT EXISTS veiculos (id TEXT PRIMARY KEY, empresa_id TEXT NOT NULL DEFAULT 'EMP_001', placa TEXT UNIQUE, modelo TEXT, ano INTEGER, capacidade_kg REAL DEFAULT 0, tipo_combustivel TEXT DEFAULT 'gasolina', consumo_medio_km_por_litro REAL DEFAULT 10.0, ativo INTEGER DEFAULT 1);
+CREATE TABLE IF NOT EXISTS deliveries (id TEXT PRIMARY KEY, empresa_id TEXT NOT NULL DEFAULT 'EMP_001', entregador_id TEXT, veiculo_id TEXT, cliente_nome TEXT NOT NULL, endereco TEXT NOT NULL, lat REAL, lng REAL, destino_lat REAL, destino_lng REAL, distancia_km REAL DEFAULT 0, tempo_total_segundos INTEGER DEFAULT 0, tempo_ocioso_segundos INTEGER DEFAULT 0, consumo_combustivel_litros REAL DEFAULT 0, tentativa_unica INTEGER DEFAULT 1, status TEXT DEFAULT 'pendente', horario_previsto TEXT, horario_inicio TEXT, horario_fim TEXT, valor REAL DEFAULT 0, nota_cliente INTEGER DEFAULT 0, comprovante_foto_url TEXT, link_rastreamento TEXT, risco_atraso TEXT DEFAULT 'baixo', geofencing_entrada TEXT, geofencing_saida TEXT, criada_em TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS vehicle_logs (id TEXT PRIMARY KEY, empresa_id TEXT NOT NULL DEFAULT 'EMP_001', veiculo_id TEXT NOT NULL, data TEXT NOT NULL, km_inicial REAL DEFAULT 0, km_final REAL DEFAULT 0, km_rodado_dia REAL DEFAULT 0, horimetro_inicial REAL DEFAULT 0, horimetro_final REAL DEFAULT 0, tempo_ocioso_total_segundos INTEGER DEFAULT 0, custo_combustivel_dia REAL DEFAULT 0, custo_manutencao_dia REAL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS driver_scorecards (id TEXT PRIMARY KEY, empresa_id TEXT NOT NULL DEFAULT 'EMP_001', entregador_id TEXT NOT NULL, mes_ano TEXT NOT NULL, taxa_sucesso_primeira_tentativa REAL DEFAULT 0, pontualidade_media REAL DEFAULT 0, eficiencia_combustivel_km_por_litro REAL DEFAULT 0, avaliacao_media_cliente REAL DEFAULT 0, tempo_medio_parada_segundos INTEGER DEFAULT 0, total_entregas INTEGER DEFAULT 0, score_geral REAL DEFAULT 0, selo TEXT DEFAULT 'sem_selo');
+CREATE TABLE IF NOT EXISTS alerts (id TEXT PRIMARY KEY, empresa_id TEXT NOT NULL DEFAULT 'EMP_001', tipo TEXT NOT NULL, entregador_id TEXT, mensagem TEXT NOT NULL, gravidade TEXT DEFAULT 'medio', lida INTEGER DEFAULT 0, criada_em TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS tracking_sessions (id TEXT PRIMARY KEY, delivery_id TEXT NOT NULL, token TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'ativo', ultimo_acesso TEXT, criada_em TEXT DEFAULT (datetime('now')));
+CREATE INDEX IF NOT EXISTS idx_deliveries_empresa ON deliveries(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_entregadores_empresa ON entregadores(empresa_id);
+`;
 
 // ==================== WEBSOCKET ====================
 const io = new Server(server, {
@@ -888,13 +903,58 @@ if (fs.existsSync(frontendDist)) {
 
 // ==================== INICIALIZACAO ====================
 
-const PORT = process.env.PORT || 3000;
+async function start() {
+  db = await initDatabase();
 
-carregarDados();
+  // Executar schema
+  db.exec(SCHEMA_SQL);
 
-server.listen(PORT, () => {
-  console.log(`🚀 Overons API rodando na porta ${PORT}`);
-  console.log(`📊 Dashboard Antigo: http://localhost:${PORT}/dashboard.html`);
-  console.log(`🆕 Dashboard React: http://localhost:${PORT}/dashboard`);
-  console.log(`✅ APIs disponiveis em /api/*`);
-});
+  // Seed basico (empresas + dados demo)
+  const countEmp = db.prepare('SELECT COUNT(*) as total FROM companies').get();
+  if (countEmp.total === 0) {
+    const planos = { trial: { entregadores: 3, veiculos: 2 }, basico: { entregadores: 5, veiculos: 3 }, profissional: { entregadores: 20, veiculos: 10 }, enterprise: { entregadores: 100, veiculos: 50 } };
+    const empresas = [
+      { id: 'EMP_001', nome: 'Overons Logistica', cnpj: '00.000.000/0001-01', responsavel: 'Administrador', email: 'admin@overons.com.br', telefone: '(11) 3000-0001', plano: 'enterprise', status: 'ativo' },
+      { id: 'EMP_002', nome: 'TechExpress Entregas', cnpj: '11.111.111/0001-11', responsavel: 'Carlos Silva', email: 'carlos@techexpress.com', telefone: '(11) 3000-0002', plano: 'profissional', status: 'ativo' },
+      { id: 'EMP_003', nome: 'RapidDelivery Ltda', cnpj: '22.222.222/0001-22', responsavel: 'Ana Oliveira', email: 'ana@rapiddelivery.com', telefone: '(11) 3000-0003', plano: 'basico', status: 'bloqueado' },
+      { id: 'EMP_004', nome: 'FoodExpress Brasil', cnpj: '33.333.333/0001-33', responsavel: 'Pedro Santos', email: 'pedro@foodexpress.com', telefone: '(11) 3000-0004', plano: 'basico', status: 'ativo' },
+      { id: 'EMP_005', nome: 'LogiMove Transportes', cnpj: '44.444.444/0001-44', responsavel: 'Maria Costa', email: 'maria@logimove.com', telefone: '(11) 3000-0005', plano: 'trial', status: 'trial' },
+    ];
+    for (const e of empresas) {
+      const p = planos[e.plano];
+      db.prepare('INSERT INTO companies (id, nome, cnpj, responsavel, email, telefone, plano, status, max_entregadores, max_veiculos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(e.id, e.nome, e.cnpj, e.responsavel, e.email, e.telefone, e.plano, e.status, p.entregadores, p.veiculos);
+      const hoje = new Date().toISOString().split('T')[0];
+      const venc = new Date(); venc.setMonth(venc.getMonth() + 1);
+      db.prepare('INSERT INTO subscriptions (id, empresa_id, plano, valor, data_inicio, data_vencimento, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run('SUB_' + e.id, e.id, e.plano, 0, hoje, venc.toISOString().split('T')[0], 'ativa');
+    }
+    // Pagamentos mockados
+    for (const e of empresas) {
+      for (let m = 0; m < 4; m++) {
+        const dataVenc = new Date(2026, 2 + m, 10);
+        const isPago = e.status === 'ativo' ? Math.random() > 0.3 : Math.random() > 0.6;
+        const dataPag = isPago ? new Date(dataVenc.getTime() + (Math.random() > 0.5 ? -2 : 3) * 86400000) : null;
+        const status = !isPago ? (dataVenc < new Date() ? 'atrasado' : 'pendente') : 'pago';
+        db.prepare('INSERT INTO payments (id, empresa_id, valor, data_pagamento, data_vencimento, metodo, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run('PAY_' + e.id + '_' + m, e.id, Math.floor(Math.random() * 50) + 90, dataPag ? dataPag.toISOString().split('T')[0] : null, dataVenc.toISOString().split('T')[0], ['pix', 'boleto', 'cartao'][m % 3], status);
+      }
+    }
+    console.log('✅ Empresas e pagamentos seed criados');
+  }
+
+  const countEnt = db.prepare('SELECT COUNT(*) as total FROM entregadores').get();
+  if (countEnt.total === 0) {
+    console.log('⚠️ Sem dados demo de entregadores. Execute backend/seed.js manualmente se quiser dados de teste completos.');
+    console.log('   O sistema funciona sem dados mockados.');
+  }
+
+  carregarDados();
+
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`🚀 Overons API rodando na porta ${PORT}`);
+    console.log(`📊 Dashboard Antigo: http://localhost:${PORT}/dashboard.html`);
+    console.log(`🆕 Dashboard React: http://localhost:${PORT}/dashboard`);
+    console.log(`✅ APIs disponiveis em /api/*`);
+  });
+}
+
+start().catch(err => { console.error('FATAL:', err); process.exit(1); });
