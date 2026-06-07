@@ -117,6 +117,56 @@ function migrate() {
     );
 
     -- Tabela de sessoes de rastreamento (para tracking links)
+    -- Tabela de empresas (multi-tenant)
+    CREATE TABLE IF NOT EXISTS companies (
+      id TEXT PRIMARY KEY,
+      nome TEXT NOT NULL,
+      cnpj TEXT UNIQUE NOT NULL,
+      responsavel TEXT NOT NULL,
+      email TEXT NOT NULL,
+      telefone TEXT,
+      plano TEXT DEFAULT 'basico' CHECK(plano IN ('trial','basico','profissional','enterprise')),
+      status TEXT DEFAULT 'trial' CHECK(status IN ('ativo','bloqueado','trial','cancelado')),
+      max_entregadores INTEGER DEFAULT 10,
+      max_veiculos INTEGER DEFAULT 5,
+      logo_url TEXT,
+      criada_em TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Tabela de assinaturas
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      empresa_id TEXT NOT NULL,
+      plano TEXT NOT NULL,
+      valor REAL NOT NULL DEFAULT 0,
+      data_inicio TEXT NOT NULL,
+      data_vencimento TEXT NOT NULL,
+      data_cancelamento TEXT,
+      status TEXT DEFAULT 'ativa' CHECK(status IN ('ativa','cancelada','expirada')),
+      FOREIGN KEY (empresa_id) REFERENCES companies(id)
+    );
+
+    -- Tabela de pagamentos
+    CREATE TABLE IF NOT EXISTS payments (
+      id TEXT PRIMARY KEY,
+      empresa_id TEXT NOT NULL,
+      subscription_id TEXT,
+      valor REAL NOT NULL,
+      data_pagamento TEXT,
+      data_vencimento TEXT NOT NULL,
+      metodo TEXT DEFAULT 'pix' CHECK(metodo IN ('pix','boleto','cartao','transferencia')),
+      status TEXT DEFAULT 'pendente' CHECK(status IN ('pago','pendente','atrasado','cancelado')),
+      comprovante_url TEXT,
+      observacao TEXT,
+      pago_em TEXT,
+      FOREIGN KEY (empresa_id) REFERENCES companies(id)
+    );
+
+    -- Indices
+    CREATE INDEX IF NOT EXISTS idx_companies_status ON companies(status);
+    CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+    CREATE INDEX IF NOT EXISTS idx_payments_empresa ON payments(empresa_id);
+
     CREATE TABLE IF NOT EXISTS tracking_sessions (
       id TEXT PRIMARY KEY,
       delivery_id TEXT NOT NULL,
@@ -134,13 +184,51 @@ function migrate() {
 // ==================== SEED DATA ====================
 
 function seed() {
-  const count = db.prepare('SELECT COUNT(*) as total FROM entregadores').get();
-  if (count.total > 0) {
-    console.log(`📦 Banco ja possui dados (${count.total} entregadores) - pulando seed`);
-    return;
+  console.log('🌱 Populando banco com dados mockados...');
+
+  // ===== EMPRESAS (sempre tenta popular se vazio) =====
+  const countEmpresas = db.prepare('SELECT COUNT(*) as total FROM companies').get();
+  if (countEmpresas.total === 0) {
+    const empresas = [
+      { id: 'EMP_001', nome: 'Overons Logistica', cnpj: '00.000.000/0001-01', responsavel: 'Administrador', email: 'admin@overons.com.br', telefone: '(11) 3000-0001', plano: 'enterprise', status: 'ativo', max_entregadores: 100, max_veiculos: 50 },
+      { id: 'EMP_002', nome: 'TechExpress Entregas', cnpj: '11.111.111/0001-11', responsavel: 'Carlos Silva', email: 'carlos@techexpress.com', telefone: '(11) 3000-0002', plano: 'profissional', status: 'ativo', max_entregadores: 30, max_veiculos: 15 },
+      { id: 'EMP_003', nome: 'RapidDelivery Ltda', cnpj: '22.222.222/0001-22', responsavel: 'Ana Oliveira', email: 'ana@rapiddelivery.com', telefone: '(11) 3000-0003', plano: 'basico', status: 'bloqueado', max_entregadores: 10, max_veiculos: 5 },
+      { id: 'EMP_004', nome: 'FoodExpress Brasil', cnpj: '33.333.333/0001-33', responsavel: 'Pedro Santos', email: 'pedro@foodexpress.com', telefone: '(11) 3000-0004', plano: 'basico', status: 'ativo', max_entregadores: 15, max_veiculos: 8 },
+      { id: 'EMP_005', nome: 'LogiMove Transportes', cnpj: '44.444.444/0001-44', responsavel: 'Maria Costa', email: 'maria@logimove.com', telefone: '(11) 3000-0005', plano: 'trial', status: 'trial', max_entregadores: 5, max_veiculos: 3 },
+    ];
+
+    const insEmpresa = db.prepare('INSERT INTO companies (id, nome, cnpj, responsavel, email, telefone, plano, status, max_entregadores, max_veiculos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    for (const e of empresas) insEmpresa.run(e.id, e.nome, e.cnpj, e.responsavel, e.email, e.telefone, e.plano, e.status, e.max_entregadores, e.max_veiculos);
+
+    const planosPrecos = { trial: 0, basico: 97, profissional: 297, enterprise: 997 };
+    const insSub = db.prepare('INSERT INTO subscriptions (id, empresa_id, plano, valor, data_inicio, data_vencimento, status) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    for (const e of empresas) {
+      const hoje = new Date();
+      const inicio = new Date(hoje); inicio.setMonth(inicio.getMonth() - Math.floor(Math.random() * 6));
+      const venc = new Date(inicio); venc.setMonth(venc.getMonth() + 1);
+      insSub.run(`SUB_${e.id}`, e.id, e.plano, planosPrecos[e.plano], inicio.toISOString().split('T')[0], venc.toISOString().split('T')[0], 'ativa');
+    }
+
+    const insPay = db.prepare('INSERT INTO payments (id, empresa_id, valor, data_pagamento, data_vencimento, metodo, status) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    const metodos = ['pix', 'boleto', 'cartao', 'pix'];
+    for (const e of empresas) {
+      for (let m = 0; m < 6; m++) {
+        const dataVenc = new Date(2025, 11 + m, 10);
+        const isPago = e.status === 'ativo' ? Math.random() > 0.2 : Math.random() > 0.5;
+        const dataPag = isPago ? new Date(dataVenc.getTime() + (Math.random() > 0.5 ? -2 : 3) * 86400000) : null;
+        const statusPag = !isPago ? (dataVenc < new Date() ? 'atrasado' : 'pendente') : 'pago';
+        insPay.run(`PAY_${e.id}_${m}`, e.id, planosPrecos[e.plano], isPago ? dataPag.toISOString().split('T')[0] : null, dataVenc.toISOString().split('T')[0], metodos[m % 4], statusPag);
+      }
+    }
+    console.log(`   - ${empresas.length} empresas cadastradas`);
   }
 
-  console.log('🌱 Populando banco com dados mockados...');
+  // ===== DADOS DE DEMONSTRACAO (pula se ja existem) =====
+  const countDemo = db.prepare('SELECT COUNT(*) as total FROM entregadores').get();
+  if (countDemo.total > 0) {
+    console.log(`📦 Dados de demonstracao ja existem (${countDemo.total} entregadores) - pulando`);
+    return;
+  }
 
   const veiculos = [
     { id: 'VH001', placa: 'ABC1A23', modelo: 'Fiat Fiorino 1.4', ano: 2022, capacidade_kg: 650, tipo_combustivel: 'gasolina', consumo_medio_km_por_litro: 10.5 },

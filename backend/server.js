@@ -677,6 +677,146 @@ setInterval(salvarDados, 30000);
 process.on('SIGINT', () => { salvarDados(); process.exit(); });
 process.on('SIGTERM', () => { salvarDados(); process.exit(); });
 
+// ==================== API: ADMIN (CENTRO DE CONTROLE) ====================
+
+// Dashboard financeiro
+app.get('/api/admin/dashboard', (req, res) => {
+  try {
+    const totalEmpresas = db.prepare('SELECT COUNT(*) as total FROM companies').get().total;
+    const ativas = db.prepare("SELECT COUNT(*) as total FROM companies WHERE status = 'ativo'").get().total;
+    const bloqueadas = db.prepare("SELECT COUNT(*) as total FROM companies WHERE status = 'bloqueado'").get().total;
+    const trial = db.prepare("SELECT COUNT(*) as total FROM companies WHERE status = 'trial'").get().total;
+    
+    const faturamentoMes = db.prepare(`
+      SELECT COALESCE(SUM(valor), 0) as total FROM payments 
+      WHERE status = 'pago' AND strftime('%Y-%m', pago_em) = strftime('%Y-%m', 'now')
+    `).get().total;
+    
+    const faturamentoAno = db.prepare(`
+      SELECT COALESCE(SUM(valor), 0) as total FROM payments 
+      WHERE status = 'pago' AND strftime('%Y', pago_em) = strftime('%Y', 'now')
+    `).get().total;
+    
+    const inadimplentes = db.prepare(`
+      SELECT COUNT(DISTINCT empresa_id) as total FROM payments 
+      WHERE status = 'atrasado' AND data_vencimento < date('now')
+    `).get().total;
+    
+    const receber = db.prepare(`
+      SELECT COALESCE(SUM(valor), 0) as total FROM payments 
+      WHERE status IN ('pendente','atrasado')
+    `).get().total;
+
+    // Faturamento ultimos 6 meses
+    const faturamentoMensal = db.prepare(`
+      SELECT strftime('%Y-%m', pago_em) as mes, COALESCE(SUM(valor), 0) as total
+      FROM payments WHERE status = 'pago' AND pago_em IS NOT NULL
+      GROUP BY mes ORDER BY mes DESC LIMIT 6
+    `).all();
+
+    res.json({
+      empresas: { total: totalEmpresas, ativas, bloqueadas, trial, inadimplentes },
+      financeiro: { faturamentoMes, faturamentoAno, aReceber: receber },
+      faturamentoMensal,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Listar empresas
+app.get('/api/admin/companies', (req, res) => {
+  try {
+    const empresas = db.prepare(`
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM payments WHERE empresa_id = c.id AND status = 'atrasado') as pagamentos_atrasados,
+        (SELECT data_vencimento FROM payments WHERE empresa_id = c.id ORDER BY data_vencimento DESC LIMIT 1) as ultimo_vencimento
+      FROM companies c ORDER BY c.criada_em DESC
+    `).all();
+    res.json(empresas);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Cadastrar empresa
+app.post('/api/admin/companies', (req, res) => {
+  try {
+    const { nome, cnpj, responsavel, email, telefone, plano } = req.body;
+    if (!nome || !cnpj || !responsavel || !email) return res.status(400).json({ error: 'Campos obrigatorios: nome, cnpj, responsavel, email' });
+    
+    const id = 'EMP_' + Date.now().toString(36).toUpperCase();
+    const precoPlano = { trial: 0, basico: 97, profissional: 297, enterprise: 997 };
+    const preco = precoPlano[plano] || 0;
+    const hoje = new Date().toISOString().split('T')[0];
+    const venc = new Date(); venc.setMonth(venc.getMonth() + 1);
+    const vencStr = venc.toISOString().split('T')[0];
+
+    db.prepare('INSERT INTO companies (id, nome, cnpj, responsavel, email, telefone, plano, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, nome, cnpj, responsavel, email, telefone || null, plano || 'trial', 'ativo');
+    db.prepare('INSERT INTO subscriptions (id, empresa_id, plano, valor, data_inicio, data_vencimento, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run('SUB_' + id, id, plano || 'trial', preco, hoje, vencStr, 'ativa');
+    db.prepare('INSERT INTO payments (id, empresa_id, valor, data_pagamento, data_vencimento, metodo, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run('PAY_' + id + '_0', id, preco, preco > 0 ? hoje : null, vencStr, 'pix', preco > 0 ? 'pago' : 'pendente');
+
+    res.json({ id, message: 'Empresa cadastrada com sucesso' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Bloquear empresa
+app.put('/api/admin/companies/:id/block', (req, res) => {
+  try {
+    db.prepare("UPDATE companies SET status = 'bloqueado' WHERE id = ?").run(req.params.id);
+    res.json({ message: 'Empresa bloqueada' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Desbloquear empresa
+app.put('/api/admin/companies/:id/unblock', (req, res) => {
+  try {
+    db.prepare("UPDATE companies SET status = 'ativo' WHERE id = ?").run(req.params.id);
+    res.json({ message: 'Empresa desbloqueada' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Listar pagamentos
+app.get('/api/admin/payments', (req, res) => {
+  try {
+    const payments = db.prepare(`
+      SELECT p.*, c.nome as empresa_nome, c.cnpj, c.status as empresa_status
+      FROM payments p JOIN companies c ON p.empresa_id = c.id
+      ORDER BY p.data_vencimento DESC LIMIT 50
+    `).all();
+    res.json(payments);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Registrar pagamento
+app.post('/api/admin/payments', (req, res) => {
+  try {
+    const { empresa_id, valor, metodo } = req.body;
+    if (!empresa_id || !valor) return res.status(400).json({ error: 'empresa_id e valor obrigatorios' });
+    
+    const hoje = new Date().toISOString().split('T')[0];
+    const venc = new Date(); venc.setMonth(venc.getMonth() + 1);
+    const id = 'PAY_' + Date.now();
+
+    db.prepare('INSERT INTO payments (id, empresa_id, valor, data_pagamento, data_vencimento, metodo, status, pago_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, empresa_id, valor, hoje, hoje, metodo || 'pix', 'pago', hoje);
+    res.json({ id, message: 'Pagamento registrado' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Relatorio inadimplencia
+app.get('/api/admin/reports/inadimplencia', (req, res) => {
+  try {
+    const inadimplentes = db.prepare(`
+      SELECT c.id, c.nome, c.cnpj, c.responsavel, c.email, c.telefone, c.plano,
+        COUNT(p.id) as total_atrasados,
+        COALESCE(SUM(p.valor), 0) as total_devido,
+        MIN(p.data_vencimento) as menor_vencimento,
+        julianday('now') - julianday(MIN(p.data_vencimento)) as dias_atraso
+      FROM companies c JOIN payments p ON c.id = p.empresa_id
+      WHERE p.status = 'atrasado' AND c.status != 'bloqueado'
+      GROUP BY c.id ORDER BY dias_atraso DESC
+    `).all();
+
+    res.json(inadimplentes);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ==================== SERVE REACT BUILD ====================
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendDist)) {

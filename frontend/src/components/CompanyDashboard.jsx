@@ -9,6 +9,7 @@ import RankingTable from './RankingTable';
 import ChartsSection from './ChartsSection';
 import DeliveryPanel from './DeliveryPanel';
 import ReportsPanel from './ReportsPanel';
+import AdminPanel from './AdminPanel';
 import './CompanyDashboard.css';
 
 export default function CompanyDashboard() {
@@ -85,6 +86,11 @@ export default function CompanyDashboard() {
             onClick={() => openSection('reports')}>
             <i className="fas fa-file-alt"></i> Relatórios
           </button>
+          <button className={`side-btn ${section === 'admin' ? 'active' : ''}`}
+            onClick={() => openSection('admin')}
+            style={{borderTop:'2px solid #fdcb6e',marginTop:4}}>
+            <i className="fas fa-shield-alt"></i> Admin
+          </button>
         </nav>
 
         <div className="sidebar-content">
@@ -121,6 +127,11 @@ export default function CompanyDashboard() {
             <div className="side-section">
               <h4 className="side-title"><i className="fas fa-file-alt"></i> Relatórios</h4>
               <ReportsPanel />
+            </div>
+          )}
+          {section === 'admin' && (
+            <div className="side-section">
+              <AdminPanel />
             </div>
           )}
           {!section && (
