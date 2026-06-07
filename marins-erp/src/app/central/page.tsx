@@ -9,8 +9,11 @@ import { loginMaster, logoutMaster, isMaster, getPermissoes } from '@/lib/permis
 export default function CentralPage() {
   const [autenticado, setAutenticado] = useState(false);
   const [showLogin, setShowLogin] = useState(!isMaster());
-  const [senha, setSenha] = useState('');
-  const [erro, setErro] = useState('');
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<any>(null);
 
   useEffect(() => { setAutenticado(isMaster()); }, []);
 
@@ -45,9 +48,6 @@ export default function CentralPage() {
   }
 
   if (!autenticado) return null;
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<any>(null);
 
   const load = async () => {
     try { const r = await fetch('/api/central/rastreamento'); if (r.ok) setData(await r.json()); } catch {}

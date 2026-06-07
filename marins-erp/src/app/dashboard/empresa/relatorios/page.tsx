@@ -10,6 +10,11 @@ export default function CompanyReportsPage() {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
 
+  const [data, setData] = useState<any>(null);
+  const [period, setPeriod] = useState('month');
+  const [driver, setDriver] = useState('all');
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => { setAutenticado(isMaster()); }, []);
 
   const entrar = () => {
@@ -43,10 +48,6 @@ export default function CompanyReportsPage() {
   }
 
   if (!autenticado) return null;
-  const [data, setData] = useState<any>(null);
-  const [period, setPeriod] = useState('month');
-  const [driver, setDriver] = useState('all');
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
