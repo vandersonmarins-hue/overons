@@ -66,7 +66,7 @@ export default function TransportadoresPage() {
                   <FileText size={18} className="text-blue-400" />
                   <span className="text-sm text-gray-200">{doc}</span>
                 </div>
-                <button className="text-blue-400 text-sm hover:text-blue-300">👁️ Visualizar</button>
+                <button onClick={() => alert('📄 Documento: ' + doc + '\n\n(Pré-visualização disponível em breve)')} className="text-blue-400 text-sm hover:text-blue-300">👁️ Visualizar</button>
               </div>
             )) : <p className="text-gray-500 text-sm">Nenhum documento anexado</p>}
           </div>

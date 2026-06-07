@@ -56,7 +56,7 @@ export default function ClientesListPage() {
               {selected.documentos.map((doc: string, i: number) => (
                 <div key={i} className="flex items-center justify-between bg-gray-800/80 rounded-xl p-3 border border-white/5 mb-2">
                   <div className="flex items-center gap-3"><FileText size={18} className="text-blue-400" /><span className="text-sm text-gray-200">{doc}</span></div>
-                  <button className="text-blue-400 text-sm">👁️ Visualizar</button>
+                  <button onClick={() => alert('📄 Documento: ' + doc + '\n\n(Pré-visualização disponível em breve)')} className="text-blue-400 text-sm">👁️ Visualizar</button>
                 </div>
               ))}
             </div>
