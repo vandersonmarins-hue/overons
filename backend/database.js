@@ -60,6 +60,7 @@ function migrate() {
       horario_previsto TEXT,
       horario_inicio TEXT,
       horario_fim TEXT,
+      valor REAL DEFAULT 0,
       nota_cliente INTEGER DEFAULT 0 CHECK(nota_cliente BETWEEN 0 AND 5),
       comprovante_foto_url TEXT,
       link_rastreamento TEXT,
@@ -190,8 +191,8 @@ function seed() {
   const insDelivery = db.prepare(`INSERT INTO deliveries 
     (id, entregador_id, veiculo_id, cliente_nome, endereco, lat, lng, destino_lat, destino_lng, 
      distancia_km, tempo_total_segundos, tempo_ocioso_segundos, consumo_combustivel_litros,
-     tentativa_unica, status, horario_previsto, horario_inicio, horario_fim, nota_cliente, criada_em)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+     tentativa_unica, status, horario_previsto, horario_inicio, horario_fim, nota_cliente, criada_em, valor)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 30);
@@ -235,6 +236,9 @@ function seed() {
       const lngBase = -46.6333 + (Math.random() - 0.5) * 0.08;
       const destLat = latBase + (Math.random() - 0.5) * 0.02;
       const destLng = lngBase + (Math.random() - 0.5) * 0.02;
+      
+      // Valor da entrega (R$)
+      const valor = status === 'concluida' ? (10 + Math.floor(Math.random() * 90)) : 0;
 
       insDelivery.run(
         `DEL_${dateStr}_${String(i).padStart(3, '0')}`, ent.id, ent.veiculo_id || null,
@@ -244,7 +248,8 @@ function seed() {
         tempoOcioso, Math.round(consumo * 100) / 100,
         tentativaUnica, status, horarioPrevisto, horarioInicio,
         status === 'concluida' ? horarioFim : null,
-        nota, `${dateStr}T${String(horaPrevista).padStart(2, '0')}:00:00`
+        nota, `${dateStr}T${String(horaPrevista).padStart(2, '0')}:00:00`,
+        valor
       );
     }
   }

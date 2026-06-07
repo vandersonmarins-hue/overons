@@ -4,6 +4,7 @@ import './ReportsPanel.css';
 
 const RELATORIOS = [
   { key: 'cpm', label: '💰 CPM' },
+  { key: 'pagamentos', label: '💵 Pagamentos' },
   { key: 'ociosidade', label: '⏳ Ociosidade' },
   { key: 'sucesso-rota', label: '🎯 Sucesso' },
   { key: 'performance-temporal', label: '📈 Performance' },
@@ -161,6 +162,61 @@ function RenderReport({ data, type }) {
           <div className="r-card"><span className="r-card-num">{data.tempoMedio?.minutos ? data.tempoMedio.minutos + ' min' : '—'}</span><span className="r-card-label">⏱️ Tempo Médio</span></div>
         </div>
         <div className="r-formula">📐 <b>Total acumulado no ano:</b> {fmtInt(data.kmPorAno?.acumulado || 0)} km</div>
+      </div>
+    );
+  }
+
+  // --- PAGAMENTOS ---
+  if (type === 'pagamentos' && data && data.totalGeral) {
+    return (
+      <div>
+        <div className="r-hero"><span className="r-hero-num">R$ {fmtInt(data.periodoAtual?.totalPago || 0)}</span><span className="r-hero-label">💵 Total pago no período</span></div>
+        
+        <div className="r-cards">
+          <div className="r-card"><span className="r-card-num">{data.periodoAtual?.entregas || 0}</span><span className="r-card-label">📦 Entregas no período</span></div>
+          <div className="r-card"><span className="r-card-num">R$ {fmt(data.periodoAtual?.ticketMedio || 0)}</span><span className="r-card-label">🎫 Ticket médio</span></div>
+          <div className="r-card"><span className="r-card-num">R$ {fmt(data.periodoAtual?.mediaPorDia || 0)}</span><span className="r-card-label">📊 Média por dia</span></div>
+          <div className="r-card"><span className="r-card-num">R$ {fmtInt(data.totalGeral?.totalPago || 0)}</span><span className="r-card-label">💰 Total geral (histórico)</span></div>
+        </div>
+
+        {/* Acumulado por mês */}
+        {data.porMes && data.porMes.length > 0 && (
+          <div style={{marginTop:14}}>
+            <h4 className="r-subtitle">📅 Acumulado por Mês</h4>
+            <table className="r-table">
+              <thead><tr><th>Mês</th><th>Entregas</th><th>Total Pago</th><th>Ticket Médio</th></tr></thead>
+              <tbody>
+                {data.porMes.map((m, i) => (
+                  <tr key={i}>
+                    <td><b>{m.mes}</b></td>
+                    <td>{m.entregas}</td>
+                    <td><b style={{color:'var(--accent)'}}>R$ {fmtInt(m.total)}</b></td>
+                    <td>R$ {m.ticketMedio}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Por entregador */}
+        {data.porEntregador && data.porEntregador.length > 0 && (
+          <div style={{marginTop:14}}>
+            <h4 className="r-subtitle">👤 Pagamento por Entregador</h4>
+            <table className="r-table">
+              <thead><tr><th>Entregador</th><th>Entregas</th><th>Total Pago</th></tr></thead>
+              <tbody>
+                {data.porEntregador.map((e, i) => (
+                  <tr key={i}>
+                    <td><b>{e.nome}</b></td>
+                    <td>{e.entregas}</td>
+                    <td><b style={{color:'var(--accent)'}}>R$ {fmtInt(e.totalPago)}</b></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     );
   }

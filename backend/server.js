@@ -333,6 +333,90 @@ app.get('/api/reports/performance-temporal', (req, res) => {
   }
 });
 
+app.get('/api/reports/pagamentos', (req, res) => {
+  try {
+    const periodo = req.query.periodo || 'mes';
+
+    // Acumulado por dia (ultimos 30 dias)
+    const porDia = db.prepare(`
+      SELECT DATE(criada_em) as dia, COUNT(*) as entregas, SUM(valor) as total, AVG(valor) as ticket_medio
+      FROM deliveries WHERE status = 'concluida'
+      GROUP BY dia ORDER BY dia DESC LIMIT 30
+    `).all();
+
+    // Acumulado por mes (ultimos 12 meses)
+    const porMes = db.prepare(`
+      SELECT strftime('%Y-%m', criada_em) as mes, COUNT(*) as entregas, SUM(valor) as total, AVG(valor) as ticket_medio
+      FROM deliveries WHERE status = 'concluida'
+      GROUP BY mes ORDER BY mes DESC LIMIT 12
+    `).all();
+
+    // Acumulado por ano
+    const porAno = db.prepare(`
+      SELECT strftime('%Y', criada_em) as ano, COUNT(*) as entregas, SUM(valor) as total, AVG(valor) as ticket_medio
+      FROM deliveries WHERE status = 'concluida'
+      GROUP BY ano ORDER BY ano DESC
+    `).all();
+
+    // Total geral
+    const totalGeral = db.prepare(`
+      SELECT COUNT(*) as total_entregas, SUM(valor) as total_pago, AVG(valor) as ticket_medio
+      FROM deliveries WHERE status = 'concluida'
+    `).get();
+
+    // Por entregador
+    const porEntregador = db.prepare(`
+      SELECT e.nome, d.entregador_id, COUNT(*) as entregas, SUM(d.valor) as total_pago
+      FROM deliveries d JOIN entregadores e ON d.entregador_id = e.id
+      WHERE d.status = 'concluida'
+      GROUP BY d.entregador_id ORDER BY total_pago DESC
+    `).all();
+
+    // Calcular totais do periodo selecionado
+    let filtroData = '';
+    const hoje = new Date();
+    if (periodo === 'dia') filtroData = "AND criada_em >= datetime('now', '-1 day')";
+    else if (periodo === 'semana') filtroData = "AND criada_em >= datetime('now', '-7 days')";
+    else if (periodo === 'mes') filtroData = "AND criada_em >= datetime('now', '-30 days')";
+    else if (periodo === 'ano') filtroData = "AND criada_em >= datetime('now', '-365 days')";
+
+    const periodoData = db.prepare(`
+      SELECT COUNT(*) as entregas, SUM(valor) as total_pago, AVG(valor) as ticket_medio
+      FROM deliveries WHERE status = 'concluida' ${filtroData}
+    `).get();
+
+    // Media por dia no periodo
+    const diasNoPeriodo = periodo === 'dia' ? 1 : periodo === 'semana' ? 7 : periodo === 'mes' ? 30 : 365;
+    const mediaPorDia = periodoData.total_pago ? (periodoData.total_pago / Math.min(diasNoPeriodo, 30)) : 0;
+
+    res.json({
+      periodo,
+      periodoAtual: {
+        entregas: periodoData.entregas,
+        totalPago: periodoData.total_pago || 0,
+        ticketMedio: periodoData.ticket_medio || 0,
+        mediaPorDia: Math.round(mediaPorDia * 100) / 100,
+      },
+      totalGeral: {
+        entregas: totalGeral.total_entregas,
+        totalPago: totalGeral.total_pago || 0,
+        ticketMedio: totalGeral.ticket_medio || 0,
+      },
+      porDia: porDia.map(d => ({ dia: d.dia, entregas: d.entregas, total: d.total || 0, ticketMedio: (d.ticket_medio || 0).toFixed(2) })),
+      porMes: porMes.map(d => ({ mes: d.mes, entregas: d.entregas, total: d.total || 0, ticketMedio: (d.ticket_medio || 0).toFixed(2) })),
+      porAno: porAno.map(d => ({ ano: d.ano, entregas: d.entregas, total: d.total || 0, ticketMedio: (d.ticket_medio || 0).toFixed(2) })),
+      porEntregador: porEntregador.map(d => ({
+        nome: d.nome || d.entregador_id,
+        entregas: d.entregas,
+        totalPago: d.total_pago || 0,
+      })),
+    });
+  } catch (err) {
+    console.error('Erro pagamentos:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/reports/carbono', (req, res) => {
   try {
     const data = db.prepare(`
