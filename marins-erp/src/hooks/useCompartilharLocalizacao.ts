@@ -11,7 +11,7 @@ interface LocationSharingState {
 export function useCompartilharLocalizacao(pedidoId?: string) {
   const [state, setState] = useState<LocationSharingState>({ ativo: true, intervalo: 10000, clientesAcompanhando: 0 });
   const watchRef = useRef<number | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout>(undefined);
   const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const enviarLocalizacao = useCallback(async (lat: number, lng: number) => {

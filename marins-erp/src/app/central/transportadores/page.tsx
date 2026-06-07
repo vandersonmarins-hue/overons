@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { Truck, Search, Eye, FileText, Download, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-const VEICULO_ICON = { moto: '🏍️', carro: '🚗', fiorino: '🚐', van: '🚐', truck: '🚛', caminhao: '🚛' };
+const VEICULO_ICON: Record<string, string> = { moto: '🏍️', carro: '🚗', fiorino: '🚐', van: '🚐', truck: '🚛', caminhao: '🚛' };
 const TIPO_CONTRATO: Record<string,string> = { clt: '👔 CLT', autonomo: '🚚 Autonomo' };
-const VEICULO_LABEL = { moto: 'Moto', carro: 'Carro', fiorino: 'Fiorino', van: 'Van', truck: 'Truck', caminhao: 'Caminhão' };
+const VEICULO_LABEL: Record<string, string> = { moto: 'Moto', carro: 'Carro', fiorino: 'Fiorino', van: 'Van', truck: 'Truck', caminhao: 'Caminhão' };
 
 export default function TransportadoresPage() {
   const [motoristas, setMotoristas] = useState<any[]>([]);

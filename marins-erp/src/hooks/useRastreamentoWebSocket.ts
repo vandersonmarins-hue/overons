@@ -12,7 +12,7 @@ export function useRastreamentoWebSocket({ pedidoId, pollingInterval = 5000 }: U
   const [posicao, setPosicao] = useState<LocalizacaoMotorista | null>(null);
   const [status, setStatus] = useState<string>('');
   const [conectado, setConectado] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout>(undefined);
 
   useEffect(() => {
     if (!pedidoId) return;

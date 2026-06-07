@@ -13,7 +13,7 @@ export default function NovaEntregaPage() {
   const [driverId, setDriverId] = useState("");
   const [tipoVeiculo, setTipoVeiculo] = useState("");
   const [precoViagem, setPrecoViagem] = useState("");
-  const [drivers, setDrivers] = useState([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
 
   useEffect(() => {
     fetch("http://localhost:3000/api/entregadores")
