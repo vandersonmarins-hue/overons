@@ -304,6 +304,22 @@
             cursor: pointer;
         }
         
+        .available-item {
+            background: white; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+            border-left: 4px solid #667eea; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .available-item .a-cliente { font-weight: bold; font-size: 14px; color: #333; }
+        .available-item .a-endereco { font-size: 12px; color: #888; margin: 2px 0; }
+        .available-item .a-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .available-item .btn-aceitar {
+            flex:1; padding: 8px; border: none; border-radius: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2); color: white;
+            font-size: 13px; font-weight: bold; cursor: pointer;
+        }
+        .available-item .btn-recusar {
+            flex:1; padding: 8px; border: 1px solid #ddd; border-radius: 8px;
+            background: white; color: #666; font-size: 13px; cursor: pointer;
+        }
         .hidden { display: none; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes modal-in { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -394,6 +410,14 @@
         
         <!-- Histórico de entregas -->
         <div class="info-card">
+            <!-- Entregas Disponiveis -->
+            <div class="info-card">
+                <h3><i class="fas fa-box-open"></i> Entregas Disponiveis</h3>
+                <div id="availableDeliveries">
+                    <div style="text-align: center; color: #999;">Buscando entregas...</div>
+                </div>
+            </div>
+
             <h3><i class="fas fa-history"></i> Últimas Entregas</h3>
             <div id="historyList">
                 <div style="text-align: center; color: #999;">Nenhuma entrega hoje</div>
@@ -846,6 +870,58 @@
                 mostrarNotificacao('💰 Bônus de boas-vindas: R$ 45,50');
             }
         }, 3000);
+
+        // ==================== BUSCAR ENTREGAS DISPONIVEIS ====================
+        function carregarEntregasDisponiveis() {
+            fetch('/api/entregas/pendentes')
+                .then(r => r.json())
+                .then(entregas => {
+                    var container = document.getElementById('availableDeliveries');
+                    if (!entregas || entregas.length === 0) {
+                        container.innerHTML = '<div style="text-align:center;color:#999;padding:10px;">✅ Nenhuma entrega pendente no momento</div>';
+                        return;
+                    }
+                    var html = '';
+                    for (var i = 0; i < entregas.length; i++) {
+                        var e = entregas[i];
+                        html += '<div class="available-item">'
+                            + '<div class="a-cliente">📦 ' + (e.cliente || 'Cliente') + '</div>'
+                            + '<div class="a-endereco">📍 ' + (e.endereco || '') + '</div>'
+                            + (e.valor > 0 ? '<div style="font-size:13px;font-weight:bold;color:#667eea;margin-top:2px;">💰 R$ ' + e.valor.toFixed(2) + '</div>' : '')
+                            + '<div class="a-actions">'
+                            + '<button class="btn-recusar" onclick="recusarEntrega(\'' + e.id + '\',this)">Recusar</button>'
+                            + '<button class="btn-aceitar" onclick="aceitarEntrega(\'' + e.id + '\',\'' + (e.cliente || 'Cliente') + '\',this)">✅ Aceitar</button>'
+                            + '</div></div>';
+                    }
+                    container.innerHTML = html;
+                })
+                .catch(function() {
+                    document.getElementById('availableDeliveries').innerHTML = '<div style="text-align:center;color:#999;padding:10px;">Erro ao carregar entregas</div>';
+                });
+        }
+
+        function aceitarEntrega(entregaId, cliente, btn) {
+            if (!socket) return;
+            socket.emit('driver-accept-delivery', { entregaId: entregaId, driverId: driverId });
+            // Troca botoes por mensagem
+            var item = btn.closest('.available-item');
+            if (item) {
+                item.innerHTML = '<div style="text-align:center;padding:8px;color:#667eea;font-weight:bold;">✅ Entrega aceita!<br><span style="font-size:12px;font-weight:normal;color:#888;">A empresa entrara em contato em breve.</span></div>';
+            }
+            mostrarNotificacao('✅ Entrega aceita! A empresa entrara em contato para mais informacoes.');
+        }
+
+        function recusarEntrega(entregaId, btn) {
+            if (!socket) return;
+            socket.emit('driver-reject-delivery', { entregaId: entregaId, driverId: driverId });
+            var item = btn.closest('.available-item');
+            if (item) item.remove();
+            mostrarNotificacao('❌ Entrega recusada');
+        }
+
+        // Carregar na inicializacao e a cada 30s
+        carregarEntregasDisponiveis();
+        setInterval(carregarEntregasDisponiveis, 30000);
     </script>
 </body>
 </html>

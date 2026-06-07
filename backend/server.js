@@ -1005,6 +1005,12 @@ app.get('/api/entregas', (req, res) => {
   res.json(entregasDB.slice().reverse());
 });
 
+// Listar entregas pendentes (disponiveis para motoristas)
+app.get('/api/entregas/pendentes', (req, res) => {
+  const pendentes = entregasDB.filter(e => e.status === 'pendente' || e.status === 'AGUARDANDO_CONFIRMACAO');
+  res.json(pendentes.slice().reverse());
+});
+
 // Cadastrar nova entrega e disparar para motoristas
 app.post('/api/entregas', (req, res) => {
   const { cliente, endereco, observacoes, produtos, driverId } = req.body;
