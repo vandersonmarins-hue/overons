@@ -199,7 +199,7 @@ export default function CompanyDashboard() {
           )}
           {section === 'deliveries' && (
             <div className="side-section">
-              <DeliveryPanel deliveryLog={deliveryLog} socket={socket} />
+              <DeliveryPanel deliveryLog={deliveryLog} />
             </div>
           )}
           {section === 'ranking' && (

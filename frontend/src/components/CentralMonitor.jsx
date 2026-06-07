@@ -63,13 +63,10 @@ export default function CentralMonitor() {
         )}
       </div>
 
-      <div style={{marginTop:12, padding:'10px 12px', background:'var(--card-bg)', borderRadius:8, border:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)'}}>
-        <i className="fas fa-external-link-alt"></i>{' '}
-        <a href="http://localhost:3001/central/nova-entrega" target="_blank" style={{color:'var(--accent)'}}>Nova Entrega</a>
-        {' | '}
-        <a href="http://localhost:3001/acesso-cliente" target="_blank" style={{color:'var(--accent)'}}>Acesso Cliente</a>
-        {' | '}
-        <a href="http://localhost:3001/central" target="_blank" style={{color:'var(--accent)'}}>Central Completa</a>
+      <div style={{marginTop:12, padding:'10px 12px', background:'var(--card-bg)', borderRadius:8, border:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)', textAlign:'center'}}>
+        <a href="http://localhost:3001/central" target="_blank" style={{color:'var(--accent)'}}>
+          <i className="fas fa-external-link-alt"></i> Central Completa
+        </a>
       </div>
     </div>
   );
