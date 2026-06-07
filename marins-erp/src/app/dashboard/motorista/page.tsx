@@ -1,7 +1,8 @@
+import Link from 'next/link';
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MapPin, Package, Clock, Route, AlertTriangle, Phone, MessageSquare, Camera, FileText, CheckCircle, XCircle, HelpCircle, Navigation, Wifi, WifiOff, Fuel, CreditCard, ListChecks, Bell, ChevronRight, User } from 'lucide-react';
+import { MapPin, Package, Clock, Route, AlertTriangle, Phone, MessageSquare, Camera, FileText, CheckCircle, XCircle, HelpCircle, Navigation, Wifi, WifiOff, Fuel, CreditCard, ListChecks, Bell, ChevronRight, User, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
@@ -331,13 +332,7 @@ function QuickButtons() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" onClick={() => setShowChecklist(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4">📋 Checklist Diário</h3>
-            {['Documentos', 'Combustível', 'Pneus', 'Luzes', 'Extintor'].map(item => (
-              <label key={item} className="flex items-center gap-3 py-2 cursor-pointer">
-                <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{item}</span>
-              </label>
-            ))}
-            <button onClick={() => setShowChecklist(false)} className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg font-medium">Salvar</button>
+            <ChecklistForm onClose={() => setShowChecklist(false)} />
           </div>
         </div>
       )}
@@ -345,12 +340,7 @@ function QuickButtons() {
       {showExpense && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" onClick={() => setShowExpense(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4">💰 Registrar Despesa</h3>
-            <select className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 mb-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-              <option>Pedágio</option><option>Estacionamento</option><option>Alimentação</option><option>Outro</option>
-            </select>
-            <input placeholder="Valor R$" type="number" className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 mb-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
-            <button onClick={() => setShowExpense(false)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium">Registrar</button>
+            <ExpenseForm onClose={() => setShowExpense(false)} />
           </div>
         </div>
       )}
@@ -412,3 +402,5 @@ export default function DriverPage() {
     </div>
   );
 }
+
+
