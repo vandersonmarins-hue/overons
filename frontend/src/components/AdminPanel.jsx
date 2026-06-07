@@ -169,11 +169,11 @@ export default function AdminPanel() {
                     <td className="admin-cell-mono" style={{color:'#d63031',fontWeight:'bold'}}>R$ {Number(i.total_devido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                     <td><span className="admin-badge danger">{Math.round(i.dias_atraso)} dias</span></td>
                     <td>
-                      <button className="admin-btn small success" onClick={() => unblockCompany(i.id)}>🔓 Desbloquear</button>
+                      <button className="admin-btn small success" onClick={() => unblockCompany(i.id)} style={{fontSize:10,padding:'3px 7px'}}>🔓 Desb</button>
                       <button className="admin-btn small" onClick={() => {
                         const v = prompt('Valor recebido:', i.total_devido);
                         if (v) fetch('/api/admin/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ empresa_id: i.id, valor: parseFloat(v), metodo: 'pix' }) }).then(() => { unblockCompany(i.id); loadAll(); });
-                      }} style={{marginLeft:4}}>💰 Receber</button>
+                      }} style={{marginLeft:4,fontSize:10,padding:'3px 7px'}}>💰 Rec</button>
                     </td>
                   </tr>
                 ))}
