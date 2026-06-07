@@ -11,6 +11,7 @@ import ChartsSection from './ChartsSection';
 import DeliveryPanel from './DeliveryPanel';
 import ReportsPanel from './ReportsPanel';
 import AdminPanel from './AdminPanel';
+import MessageSender from './MessageSender';
 import './CompanyDashboard.css';
 
 const ADMIN_KEY = 'overons_admin';
