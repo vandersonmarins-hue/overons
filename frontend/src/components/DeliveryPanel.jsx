@@ -34,19 +34,7 @@ export default function DeliveryPanel({ deliveryLog, socket }) {
     return () => { socket.off('new-delivery-log', h); socket.off('delivery-accepted', h); };
   }, [socket]);
 
-  const merged = [];
-  const seen = new Set();
-
-  for (const d of allDeliveries) {
-    merged.push({ ...d, _source: 'api' });
-    seen.add(d.pedidoId || d.id);
-  }
-  if (deliveryLog) {
-    for (const d of deliveryLog) {
-      const key = d.id || d.pedidoId || Math.random();
-      if (!seen.has(key)) { merged.push({ ...d, _source: 'socket' }); seen.add(key); }
-    }
-  }
+  const merged = allDeliveries.slice();
   merged.sort((a, b) => ((b.criadaEm || b.createdAt) || '').localeCompare((a.criadaEm || a.createdAt) || ''));
 
   const fmt = (s) => { try { return new Date(s).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return s || '—'; } };
