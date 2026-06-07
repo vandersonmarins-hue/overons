@@ -181,13 +181,14 @@ export default function CompanyDashboard() {
             style={{borderTop:'2px solid #0984e3',marginTop:4}}>
             <i className="fas fa-tv"></i> Central
           </button>
-          {adminMode && (
-            <button className={`side-btn ${section === 'admin' ? 'active' : ''}`}
-              onClick={() => openSection('admin')}
-              style={{borderTop:'2px solid #fdcb6e',marginTop:4}}>
-              <i className="fas fa-shield-alt"></i> Admin
-            </button>
-          )}
+          <button className={`side-btn ${section === 'admin' ? 'active' : ''}`}
+            onClick={() => {
+              if (adminMode) { openSection('admin'); }
+              else { setShowLogin(true); setPwdInput(''); setPwdError(false); }
+            }}
+            style={{borderTop:'2px solid #fdcb6e',marginTop:4}}>
+            <i className="fas fa-shield-alt"></i> {adminMode ? 'Admin' : '🔐 Admin (Logar)'}
+          </button>
         </nav>
 
         <div className="sidebar-content">
