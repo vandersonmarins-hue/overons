@@ -96,15 +96,10 @@ export default function CadastroMotoristaPublicoPage() {
         {passo === 1 && (
           <div className="bg-gray-900/80 rounded-2xl p-5 border border-white/10">
             <h2 className="text-white font-bold text-base mb-4">👤 Dados Pessoais</h2>
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <button onClick={() => setTipoContrato("clt")}
-              className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${tipoContrato === "clt" ? "bg-blue-600/20 border-blue-500/50 text-blue-400" : "bg-gray-800 border-white/10 text-gray-400 hover:bg-gray-700"}`}>
-              👔 CLT (Funcionário)
-            </button>
-            <button onClick={() => setTipoContrato("autonomo")}
-              className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${tipoContrato === "autonomo" ? "bg-blue-600/20 border-blue-500/50 text-blue-400" : "bg-gray-800 border-white/10 text-gray-400 hover:bg-gray-700"}`}>
-              🚚 Autônomo
-            </button>
+            <p className="text-gray-500 text-xs mb-3">Todos os campos são obrigatórios <span className="text-red-400">*</span></p>
+          <div className="bg-blue-600/10 border border-blue-500/20 rounded-xl p-3 mb-4 text-center">
+            <span className="text-blue-400 font-bold text-sm">🚚 Transportador Autônomo</span>
+            <p className="text-gray-500 text-xs mt-1">Você está se cadastrando como motorista autônomo</p>
           </div>
             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome completo" className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-blue-500/50" />
             <div className="grid grid-cols-2 gap-3 mb-3">
@@ -188,7 +183,17 @@ export default function CadastroMotoristaPublicoPage() {
         <div className="flex gap-3">
           {passo > 1 && <button onClick={() => setPasso(p => p - 1)} className="flex-1 py-3.5 bg-gray-800 text-white rounded-xl text-sm font-medium hover:bg-gray-700">Voltar</button>}
           {passo < 3 ? (
-            <button onClick={() => setPasso(p => p + 1)} disabled={passo === 1 && (!nome || !cpf)} className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={() => {
+              if (passo === 1 && (!nome || !cpf || !dataNascimento || !telefone || !email || !endereco)) {
+                alert('Preencha todos os campos obrigatorios: Nome, CPF, Data Nascimento, Telefone, Email e Endereco');
+                return;
+              }
+              if (passo === 2 && (!cnh || !cnhCategoria || !tipoVeiculo)) {
+                alert('Preencha todos os campos obrigatorios: CNH, Categoria e Tipo de Veiculo');
+                return;
+              }
+              setPasso(p => p + 1);
+            }} className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700">
               Próximo
             </button>
           ) : (
