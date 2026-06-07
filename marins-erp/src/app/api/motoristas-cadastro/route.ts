@@ -4,7 +4,7 @@ const motoristas: any[] = [];
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { nome, cpf, cnh, cnhCategoria, telefone, email, endereco, dataNascimento, observacoes, documentos } = body;
+  const { nome, cpf, cnh, cnhCategoria, tipoVeiculo, telefone, email, endereco, dataNascimento, observacoes, documentos } = body;
 
   if (!nome || !cpf) {
     return NextResponse.json({ erro: 'Nome e CPF sao obrigatorios' }, { status: 400 });
@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     cpf: cpf.replace(/\D/g, ''),
     cnh: cnh || '',
     cnhCategoria: cnhCategoria || '',
+    tipoVeiculo: tipoVeiculo || '',
     telefone: telefone || '',
     email: email || '',
     endereco: endereco || '',

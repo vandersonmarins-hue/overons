@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Truck, Upload, ArrowLeft, CheckCircle, Camera, FileText } from 'lucide-react';
+import { Truck, Upload, ArrowLeft, CheckCircle, Camera, FileText, Bike, Car, Truck as TruckIcon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CadastroMotoristaPage() {
@@ -14,6 +14,7 @@ export default function CadastroMotoristaPage() {
   const [endereco, setEndereco] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [observacoes, setObservacoes] = useState('');
+  const [tipoVeiculo, setTipoVeiculo] = useState("");
   const [docs, setDocs] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
@@ -30,7 +31,7 @@ export default function CadastroMotoristaPage() {
       const res = await fetch('/api/motoristas-cadastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, cpf, cnh, cnhCategoria, telefone, email, endereco, dataNascimento, observacoes, documentos: docs }),
+        body: JSON.stringify({ nome, cpf, cnh, cnhCategoria, tipoVeiculo, telefone, email, endereco, dataNascimento, observacoes, documentos: docs }),
       });
       const data = await res.json();
       if (data.success) setResultado(data);
@@ -91,7 +92,19 @@ export default function CadastroMotoristaPage() {
 
         {/* CNH */}
         <div className="bg-gray-900/80 rounded-2xl p-5 border border-white/10">
-          <h2 className="text-white font-bold text-sm mb-4">🚛 Habilitação</h2>
+          <h2 className="text-white font-bold text-sm mb-4">🚛 Habilitação e Veículo</h2>
+          <div className="mb-4">
+            <label className="text-gray-400 text-xs mb-2 block">Tipo de Veículo que dirige</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[{v:"moto",icon:Bike,l:"Moto"},{v:"carro",icon:Car,l:"Carro"},{v:"fiorino",icon:Truck,l:"Fiorino"},{v:"van",icon:Truck,l:"Van"},{v:"truck",icon:TruckIcon,l:"Truck"},{v:"caminhao",icon:TruckIcon,l:"Caminhão"}].map(t => (
+                <button key={t.v} onClick={() => setTipoVeiculo(t.v)}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${tipoVeiculo === t.v ? "bg-blue-600/20 border-blue-500/50 text-blue-400" : "bg-gray-800 border-white/10 text-gray-400 hover:bg-gray-700"}`}>
+                  <t.icon size={24} />
+                  <span className="text-xs">{t.l}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <input value={cnh} onChange={e => setCnh(e.target.value)} placeholder="Numero CNH" className="col-span-2 w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
             <select value={cnhCategoria} onChange={e => setCnhCategoria(e.target.value)} className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50">
