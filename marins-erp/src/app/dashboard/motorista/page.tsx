@@ -3,8 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Package, MapPin, Bell, MessageSquare, FileText, CheckCircle, Fuel, CreditCard, ListChecks, TrendingUp, User, Navigation, Wifi, WifiOff, X, AlertTriangle, Phone, Camera, HelpCircle, Clock, Route } from 'lucide-react';
 import dynamic from 'next/dynamic';
-
-import MapaGoogle from '@/components/MapaGoogle';
+const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
+const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false });
+const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false });
+const Polyline = dynamic(() => import('react-leaflet').then(m => m.Polyline), { ssr: false });
+import 'leaflet/dist/leaflet.css';
 
 // Origem fixa (centro de distribuicao)
 const ORIGEM = { lat: -23.5505, lng: -46.6333, nome: 'Centro de Distribuicao' };
@@ -44,14 +48,21 @@ export default function DriverPage() {
       {/* MAPA FULLSCREEN */}
       {mounted && (
         <div className="absolute inset-0 z-0">
-          <MapaGoogle
-            origemLat={ORIGEM.lat}
-            origemLng={ORIGEM.lng}
-            origemNome={ORIGEM.nome}
-            destinos={deliveries.filter(d => d.lat).map(d => ({ id: d.id, lat: d.lat, lng: d.lng, nome: d.clientName, endereco: d.address, horario: d.scheduledTime }))}
-            motoristaLat={currentLocation?.lat}
-            motoristaLng={currentLocation?.lng}
-          />
+          <MapContainer center={[currentLocation?.lat || ORIGEM.lat, currentLocation?.lng || ORIGEM.lng]} zoom={13} className="h-full w-full" zoomControl={false}>
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <Marker position={[ORIGEM.lat, ORIGEM.lng]}>
+              <Popup><div className="font-bold text-sm">🏭 {ORIGEM.nome}</div><div className="text-xs text-gray-500">Origem da mercadoria</div></Popup>
+            </Marker>
+            {deliveries.filter(d => d.lat).map((d) => (
+              <Marker key={d.id} position={[d.lat, d.lng]}>
+                <Popup><div className="font-bold text-sm">📍 {d.clientName}</div><div className="text-xs text-gray-600">{d.address}</div><div className="text-xs text-blue-500">⏰ {d.scheduledTime}</div></Popup>
+              </Marker>
+            ))}
+            {deliveries.filter(d => d.lat).length > 0 && (
+              <Polyline positions={[[ORIGEM.lat, ORIGEM.lng], ...deliveries.filter(d => d.lat).map(d => [d.lat, d.lng] as [number, number])]} color="#3b82f6" weight={3} opacity={0.4} dashArray="8,8" />
+            )}
+            {currentLocation && <Marker position={[currentLocation.lat, currentLocation.lng]}><Popup><div className="font-bold text-sm">🚚 Sua posição</div><div className="text-xs text-gray-500">Em tempo real</div></Popup></Marker>}
+          </MapContainer>
           <button onClick={() => { if (current) window.open(`https://www.google.com/maps/dir/?api=1&destination=${current.lat},${current.lng}`, '_blank'); }}
             className="absolute bottom-6 right-4 bg-blue-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-bold flex items-center gap-2 z-10 shadow-blue-900/50 hover:bg-blue-700 active:scale-95 transition-all">
             <Navigation size={18} /> Navegar
