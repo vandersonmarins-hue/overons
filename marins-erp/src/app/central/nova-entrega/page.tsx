@@ -30,7 +30,7 @@ export default function NovaEntregaPage() {
     if (!cliente.trim() || !endereco.trim()) return alert('Preencha cliente e endereco');
     setSaving(true);
     try {
-      const res = await fetch('/api/entregas', {
+      const res = await fetch('http://localhost:3000/api/entregas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
