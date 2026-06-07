@@ -30,7 +30,7 @@
 .hero-label { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
 
 /* ===== GRID DE CARDS ===== */
-.r-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.r-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
 .r-card {
   background: var(--card-bg); border-radius: 10px; padding: 18px;
   border: 1px solid var(--border); text-align: center;
