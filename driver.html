@@ -741,7 +741,14 @@
 
             // Mensagem da empresa (popup chamativo)
             socket.on('new-message', (msg) => {
+                console.log('📢 NOVA MENSAGEM:', msg);
                 mostrarPopupEmpresa(msg);
+                // Fallback: alert se o popup nao funcionar
+                try { 
+                    if (!document.getElementById('popup-empresa')) {
+                        alert('📢 ' + (msg.empresa || 'Empresa') + ': ' + msg.message);
+                    }
+                } catch(e) {}
             });
         }
         
