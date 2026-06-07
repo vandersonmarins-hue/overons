@@ -344,6 +344,11 @@
             </div>
         </div>
         
+        <!-- Status da conexao -->
+        <div style="text-align:center;margin-bottom:8px;">
+            <span id="socket-status" style="font-size:12px;background:rgba(255,255,255,0.15);padding:4px 12px;border-radius:12px;color:#fff;">🟡 Conectando...</span>
+        </div>
+        
         <!-- Status do entregador -->
         <div class="info-card">
             <h3><i class="fas fa-circle"></i> Status</h3>
@@ -559,53 +564,49 @@
             setTimeout(() => notif.remove(), 3000);
         }
         
-        // Popup chamativo de mensagem da empresa
+        // Popup chamativo de mensagem da empresa (SIMPLIFICADO - SEM ERRO)
         function mostrarPopupEmpresa(msg) {
-            const existing = document.getElementById('popup-empresa');
-            if (existing) existing.remove();
-            
-            const popup = document.createElement('div');
-            popup.id = 'popup-empresa';
-            popup.style.cssText = `
-                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.7); display: flex;
-                align-items: center; justify-content: center;
-                z-index: 99999; backdrop-filter: blur(4px);
-                animation: fadeIn 0.3s ease;
-            `;
-            
-            const box = document.createElement('div');
-            box.style.cssText = `
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                color: #fff; border-radius: 24px; padding: 40px 32px;
-                max-width: 380px; width: 90%; text-align: center;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-                animation: modal-in 0.3s ease;
-            `;
-            
-            box.innerHTML = `
-                <div style="font-size:48px;margin-bottom:12px;">📢</div>
-                <div style="font-size:13px;opacity:0.8;margin-bottom:4px;">${msg.empresa || 'Empresa'}</div>
-                <div style="font-size:18px;font-weight:bold;margin-bottom:16px;line-height:1.4;">${msg.message}</div>
-                ${msg.type === 'audio' ? `<button onclick="this.nextElementSibling.play()" style="padding:10px 24px;border:none;border-radius:12px;background:rgba(255,255,255,0.2);color:#fff;font-size:16px;cursor:pointer;">🔊 Ouvir Áudio</button><audio src="${msg.audioUrl}" style="display:none"></audio>` : ''}
-                <button onclick="document.getElementById('popup-empresa').remove()" 
-                    style="padding:12px 32px;border:none;border-radius:12px;background:#fff;color:#667eea;font-size:16px;font-weight:bold;cursor:pointer;min-width:120px;margin-top:12px;">
-                    OK ✓
-                </button>
-            `;
-            
-            popup.appendChild(box);
-            document.body.appendChild(popup);
-            
-            // Efeito sonoro (beep)
             try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                osc.type = 'sine'; osc.frequency.value = 800;
-                const gain = ctx.createGain(); gain.gain.value = 0.3;
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.start(); setTimeout(() => { osc.stop(); ctx.close(); }, 500);
-            } catch(e) {}
+                // Remove popup anterior se existir
+                var old = document.getElementById('popup-empresa');
+                if (old) old.remove();
+                
+                // Cria o fundo escuro
+                var popup = document.createElement('div');
+                popup.id = 'popup-empresa';
+                popup.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);';
+                
+                // Cria a caixa de mensagem
+                var box = document.createElement('div');
+                box.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:24px;padding:40px 32px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+                
+                // Monta o HTML (sem template literals aninhados)
+                var html = '<div style="font-size:48px;margin-bottom:12px;">📢</div>';
+                html += '<div style="font-size:13px;opacity:0.8;margin-bottom:4px;">' + (msg.empresa || 'Empresa') + '</div>';
+                html += '<div style="font-size:18px;font-weight:bold;margin-bottom:16px;line-height:1.4;">' + msg.message + '</div>';
+                html += '<button onclick="this.parentElement.parentElement.remove()" style="padding:12px 32px;border:none;border-radius:12px;background:#fff;color:#667eea;font-size:16px;font-weight:bold;cursor:pointer;min-width:120px;margin-top:12px;">OK ✓</button>';
+                
+                box.innerHTML = html;
+                popup.appendChild(box);
+                document.body.appendChild(popup);
+                
+                // Beep sonoro
+                try {
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    var osc = ctx.createOscillator();
+                    osc.type = 'sine'; osc.frequency.value = 800;
+                    var gain = ctx.createGain(); gain.gain.value = 0.3;
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.start();
+                    setTimeout(function() { osc.stop(); ctx.close(); }, 500);
+                } catch(e) {}
+                
+                console.log('📢 POPUP EXIBIDO:', msg.message);
+            } catch(e) {
+                console.error('❌ ERRO no popup:', e);
+                // Fallback: alert simples
+                alert('📢 ' + msg.empresa + ': ' + msg.message);
+            }
         }
         
         // Simular nova entrega a cada 30-60 segundos
@@ -719,15 +720,16 @@
                 console.log('Conectado ao servidor');
                 mostrarNotificacao('Conectado ao servidor Overons!');
                 socket.emit('driver-register', { driverId, nome: driverName, status: isOnline ? 'online' : 'offline' });
-                // Enviar localizacao atual se ja estiver rastreando
                 if (trackingActive) {
                     socket.emit('driver-status', { driverId, status: isOnline ? 'online' : 'offline' });
                 }
+                document.getElementById('socket-status').textContent = '🟢 Online';
             });
             
             socket.on('disconnect', () => {
                 console.log('Desconectado');
                 mostrarNotificacao('⚠️ Conexão perdida. Reconectando...');
+                document.getElementById('socket-status').textContent = '🔴 Offline';
                 setTimeout(connectSocket, 3000);
             });
             
