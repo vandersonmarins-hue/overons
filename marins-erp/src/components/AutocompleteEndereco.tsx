@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapPin, Search, X } from 'lucide-react';
 
-// Usando Nominatim (OpenStreetMap) - gratuito, sem API key
-// Quando tiver a chave Google, troque para o Google Places
+const GOOGLE_API_KEY = 'AIzaSyAt3eYbH9YklC9DcdU_5mpJUqj9mvqzvM8';
 
 interface Sugestao {
   description: string;
@@ -40,15 +39,24 @@ export default function AutocompleteEndereco({ value, onChange, onSelect, placeh
       setLoading(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=5&countrycodes=br`,
-          { headers: { 'Accept-Language': 'pt-BR' } }
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(value)}&types=address&language=pt-BR&components=country:br&key=${GOOGLE_API_KEY}`
         );
         const data = await res.json();
-        if (data && data.length > 0) {
-          setSugestoes(data.map((d: any) => ({ description: d.display_name, place_id: d.place_id || d.osm_id })));
-          setAberto(true);
+        if (data.predictions) {
+          setSugestoes(data.predictions.map((p: any) => ({ description: p.description, place_id: p.place_id })));
+          setAberto(data.predictions.length > 0);
         }
-      } catch {}
+      } catch {
+        // Fallback: Nominatim se Google falhar
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=5&countrycodes=br`,
+            { headers: { 'Accept-Language': 'pt-BR' } }
+          );
+          const data = await res.json();
+          if (data?.length > 0) setSugestoes(data.map((d: any) => ({ description: d.display_name, place_id: d.place_id || d.osm_id })));
+        } catch {}
+      }
       setLoading(false);
     }, 300);
 
@@ -63,10 +71,22 @@ export default function AutocompleteEndereco({ value, onChange, onSelect, placeh
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const selecionar = (s: Sugestao) => {
+  const buscarCoords = async (placeId: string) => {
+    try {
+      const res = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry,formatted_address&key=${GOOGLE_API_KEY}`);
+      const data = await res.json();
+      if (data.result?.geometry?.location) return { lat: data.result.geometry.location.lat, lng: data.result.geometry.location.lng, endereco: data.result.formatted_address || '' };
+    } catch {}
+    return null;
+  };
+
+  const selecionar = async (s: Sugestao) => {
     setAberto(false);
     onChange(s.description);
-    if (onSelect) onSelect(s.description, 0, 0);
+    if (onSelect) {
+      const coords = await buscarCoords(s.place_id);
+      onSelect(coords?.endereco || s.description, coords?.lat || 0, coords?.lng || 0);
+    }
   };
 
   return (
