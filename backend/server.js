@@ -653,6 +653,22 @@ io.on('connection', (socket) => {
     io.emit('new-delivery-log', novaEntrega); io.emit('drivers-update', getDriversList()); salvarDados();
   });
 
+  // Empresa envia mensagem para o motorista
+  socket.on('send-message', (data) => {
+    if (!data || !data.driverId || !data.message) return;
+    const d = drivers.get(data.driverId);
+    if (d && d.socketId) {
+      io.to(d.socketId).emit('new-message', {
+        type: data.type || 'text',
+        message: data.message,
+        audioUrl: data.audioUrl || null,
+        empresa: data.empresa || 'Empresa',
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`📨 Mensagem enviada para ${data.driverId}`);
+    }
+  });
+
   socket.on('disconnect', () => {
     for (const [id, d] of drivers) {
       if (d.socketId === socket.id) { d.status = 'offline'; d.lastSeen = new Date().toISOString(); io.emit('drivers-update', getDriversList()); break; }

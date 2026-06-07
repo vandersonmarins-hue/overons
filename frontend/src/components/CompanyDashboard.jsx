@@ -169,6 +169,10 @@ export default function CompanyDashboard() {
             onClick={() => openSection('reports')}>
             <i className="fas fa-file-alt"></i> Relatórios
           </button>
+          <button className={`side-btn ${section === 'messages' ? 'active' : ''}`}
+            onClick={() => openSection('messages')}>
+            <i className="fas fa-comment-dots"></i> Mensagens
+          </button>
           {adminMode && (
             <button className={`side-btn ${section === 'admin' ? 'active' : ''}`}
               onClick={() => openSection('admin')}
@@ -212,6 +216,11 @@ export default function CompanyDashboard() {
             <div className="side-section">
               <h4 className="side-title"><i className="fas fa-file-alt"></i> Relatórios</h4>
               <ReportsPanel />
+            </div>
+          )}
+          {section === 'messages' && (
+            <div className="side-section">
+              <MessageSender socket={socket} drivers={drivers} />
             </div>
           )}
           {section === 'admin' && (

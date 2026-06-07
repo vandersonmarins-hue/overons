@@ -304,9 +304,9 @@
             cursor: pointer;
         }
         
-        .hidden {
-            display: none;
-        }
+        .hidden { display: none; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes modal-in { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -559,6 +559,55 @@
             setTimeout(() => notif.remove(), 3000);
         }
         
+        // Popup chamativo de mensagem da empresa
+        function mostrarPopupEmpresa(msg) {
+            const existing = document.getElementById('popup-empresa');
+            if (existing) existing.remove();
+            
+            const popup = document.createElement('div');
+            popup.id = 'popup-empresa';
+            popup.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.7); display: flex;
+                align-items: center; justify-content: center;
+                z-index: 99999; backdrop-filter: blur(4px);
+                animation: fadeIn 0.3s ease;
+            `;
+            
+            const box = document.createElement('div');
+            box.style.cssText = `
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: #fff; border-radius: 24px; padding: 40px 32px;
+                max-width: 380px; width: 90%; text-align: center;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                animation: modal-in 0.3s ease;
+            `;
+            
+            box.innerHTML = `
+                <div style="font-size:48px;margin-bottom:12px;">📢</div>
+                <div style="font-size:13px;opacity:0.8;margin-bottom:4px;">${msg.empresa || 'Empresa'}</div>
+                <div style="font-size:18px;font-weight:bold;margin-bottom:16px;line-height:1.4;">${msg.message}</div>
+                ${msg.type === 'audio' ? `<button onclick="this.nextElementSibling.play()" style="padding:10px 24px;border:none;border-radius:12px;background:rgba(255,255,255,0.2);color:#fff;font-size:16px;cursor:pointer;">🔊 Ouvir Áudio</button><audio src="${msg.audioUrl}" style="display:none"></audio>` : ''}
+                <button onclick="document.getElementById('popup-empresa').remove()" 
+                    style="padding:12px 32px;border:none;border-radius:12px;background:#fff;color:#667eea;font-size:16px;font-weight:bold;cursor:pointer;min-width:120px;margin-top:12px;">
+                    OK ✓
+                </button>
+            `;
+            
+            popup.appendChild(box);
+            document.body.appendChild(popup);
+            
+            // Efeito sonoro (beep)
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = 'sine'; osc.frequency.value = 800;
+                const gain = ctx.createGain(); gain.gain.value = 0.3;
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(); setTimeout(() => { osc.stop(); ctx.close(); }, 500);
+            } catch(e) {}
+        }
+        
         // Simular nova entrega a cada 30-60 segundos
         setInterval(() => {
             if (isOnline && trackingActive) {
@@ -686,6 +735,11 @@
                 if (isOnline) {
                     mostrarNotificacao(`📦 Nova entrega para ${delivery.endereco}! ${delivery.cliente ? 'Cliente: ' + delivery.cliente : ''}`);
                 }
+            });
+
+            // Mensagem da empresa (popup chamativo)
+            socket.on('new-message', (msg) => {
+                mostrarPopupEmpresa(msg);
             });
         }
         
