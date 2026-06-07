@@ -14,6 +14,7 @@ export default function CadastroMotoristaPublicoPage() {
   const [cnh, setCnh] = useState('');
   const [cnhCategoria, setCnhCategoria] = useState('');
   const [tipoVeiculo, setTipoVeiculo] = useState('');
+  const [tipoContrato, setTipoContrato] = useState('autonomo');
   const [docs, setDocs] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
