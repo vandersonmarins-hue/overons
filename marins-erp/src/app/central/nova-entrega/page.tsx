@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Package, Plus, Trash2, Copy, CheckCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import AutocompleteEndereco from '@/components/AutocompleteEndereco';
 
 export default function NovaEntregaPage() {
   const [cliente, setCliente] = useState('');
@@ -127,9 +128,7 @@ export default function NovaEntregaPage() {
           <h2 className="text-white font-bold text-sm mb-4">👤 Dados do Cliente</h2>
           <input value={cliente} onChange={e => setCliente(e.target.value)}
             placeholder="Nome do cliente" className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-blue-500/50" />
-          <textarea value={endereco} onChange={e => setEndereco(e.target.value)}
-            placeholder="Endereco completo da entrega" rows={2}
-            className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-blue-500/50" />
+          <AutocompleteEndereco value={endereco} onChange={setEndereco} placeholder="Endereco completo da entrega" className="mb-3" />
           <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
             placeholder="Observacoes (opcional)" rows={2}
             className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
