@@ -16,6 +16,7 @@ export default function CadastroMotoristaPage() {
   const [observacoes, setObservacoes] = useState('');
   const [tipoVeiculo, setTipoVeiculo] = useState("");
   const [docs, setDocs] = useState<string[]>([]);
+  const [certidoes, setCertidoes] = useState<Record<string,boolean>>({});
   const [saving, setSaving] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
 
