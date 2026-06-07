@@ -205,7 +205,51 @@
             display: none;
         }
         
-        /* ===== NOTIFICACAO TOAST ===== */
+        /* ===== MARCADOR DO MAPA ===== */
+.marker-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+}
+.marker-container::before {
+    content: '';
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--ring-color, #00b894);
+    opacity: 0.25;
+    animation: none;
+}
+.marker-container.pulse-animation::before {
+    animation: marker-pulse 1.5s ease-in-out infinite;
+}
+.marker-inner {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4), 0 0 0 2px var(--ring-color, #00b894);
+    position: relative;
+    z-index: 2;
+    transition: all 0.3s ease;
+}
+.marker-container.pulse-animation .marker-inner {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4), 0 0 0 3px var(--ring-color, #00b894);
+}
+
+@keyframes marker-pulse {
+    0% { transform: scale(1); opacity: 0.25; }
+    50% { transform: scale(1.6); opacity: 0.08; }
+    100% { transform: scale(1); opacity: 0.25; }
+}
+
+/* ===== NOTIFICACAO TOAST ===== */
         .toast {
             position: fixed;
             bottom: 20px;
@@ -336,20 +380,36 @@
         
         const markers = new Map(); // driverId -> { marker, circle, info }
         
-        // Icone personalizado (bolinha colorida via Leaflet divIcon)
-        function createDriverIcon(color) {
+        // Icone personalizado do motorista
+        function createDriverIcon(color, status, hasDelivery) {
+            let icon = 'fa-truck';
+            let pulse = '';
+            let ringColor = color;
+            
+            if (status === 'offline') {
+                icon = 'fa-truck';
+                pulse = '';
+            } else if (hasDelivery) {
+                icon = 'fa-box';
+                pulse = 'pulse-animation';
+                ringColor = '#fdcb6e';
+            } else {
+                icon = 'fa-truck';
+                pulse = 'pulse-animation';
+            }
+            
             return L.divIcon({
                 className: '',
-                html: `<div style="
-                    width: 24px; height: 24px; 
-                    background: ${color}; 
-                    border: 3px solid #fff; 
-                    border-radius: 50%; 
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                "></div>`,
-                iconSize: [24, 24],
-                iconAnchor: [12, 12],
-                popupAnchor: [0, -12],
+                html: `
+                    <div class="marker-container ${pulse}" style="--ring-color: ${ringColor};">
+                        <div class="marker-inner" style="background: ${color};">
+                            <i class="fas ${icon}" style="color: #fff; font-size: 16px;"></i>
+                        </div>
+                    </div>
+                `,
+                iconSize: [44, 44],
+                iconAnchor: [22, 22],
+                popupAnchor: [0, -22],
             });
         }
         
@@ -391,7 +451,7 @@
                 // Criar marker imediatamente se ainda nao existe
                 const color = '#00b894';
                 const marker = L.marker([latitude, longitude], {
-                    icon: createDriverIcon(color)
+                    icon: createDriverIcon(color, 'online', false)
                 }).addTo(map);
                 marker.bindPopup(`<div style="font-family:Arial;min-width:180px;"><h4 style="margin:0 0 5px;color:#16213e;">🚚 ${driverId}</h4><p style="margin:2px 0;font-size:13px;"><b>Status:</b> 🟢 Online<br><b>📍</b> ${latitude.toFixed(6)}, ${longitude.toFixed(6)}</p></div>`);
                 
@@ -488,12 +548,12 @@
                 if (markers.has(d.id)) {
                     const m = markers.get(d.id);
                     m.marker.setLatLng([d.latitude, d.longitude]);
-                    m.marker.setIcon(createDriverIcon(color));
+                    m.marker.setIcon(createDriverIcon(color, d.status, d.entregasHoje > 0));
                     if (m.circle) m.circle.setLatLng([d.latitude, d.longitude]);
                     m.info = d;
                 } else {
                     const marker = L.marker([d.latitude, d.longitude], {
-                        icon: createDriverIcon(color)
+                        icon: createDriverIcon(color, d.status, d.entregasHoje > 0)
                     }).addTo(map);
                     
                     marker.bindPopup(`
