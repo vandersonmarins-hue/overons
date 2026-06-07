@@ -40,7 +40,7 @@ export const useDriverStore = create<DriverState>((set) => ({
   messages: MOCK_MESSAGES,
   checklist: { date: new Date().toISOString().split('T')[0], documents: true, fuel: true, tires: true, completed: true },
   expenses: [],
-  isOnline: navigator.onLine,
+  isOnline: true, // navigator.onLine (client-only)
   currentLocation: null,
   setOnline: (v) => set({ isOnline: v }),
   updateDeliveryStatus: (id, status, notes, photoUrl) =>
@@ -66,3 +66,4 @@ export const useDriverStore = create<DriverState>((set) => ({
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
   setCurrentLocation: (loc) => set({ currentLocation: loc }),
 }));
+
