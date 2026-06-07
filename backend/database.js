@@ -19,6 +19,7 @@ function migrate() {
     -- Tabela de entregadores (estendida)
     CREATE TABLE IF NOT EXISTS entregadores (
       id TEXT PRIMARY KEY,
+      empresa_id TEXT NOT NULL DEFAULT 'EMP_001',
       nome TEXT NOT NULL,
       telefone TEXT,
       veiculo_id TEXT,
@@ -30,6 +31,7 @@ function migrate() {
     -- Tabela de veiculos
     CREATE TABLE IF NOT EXISTS veiculos (
       id TEXT PRIMARY KEY,
+      empresa_id TEXT NOT NULL DEFAULT 'EMP_001',
       placa TEXT UNIQUE,
       modelo TEXT,
       ano INTEGER,
@@ -42,7 +44,7 @@ function migrate() {
     -- Tabela de entregas (completa)
     CREATE TABLE IF NOT EXISTS deliveries (
       id TEXT PRIMARY KEY,
-      empresa_id TEXT DEFAULT 'OVERONS_001',
+      empresa_id TEXT NOT NULL DEFAULT 'EMP_001',
       entregador_id TEXT,
       veiculo_id TEXT,
       cliente_nome TEXT NOT NULL,
@@ -75,6 +77,7 @@ function migrate() {
     -- Tabela de logs diarios do veiculo
     CREATE TABLE IF NOT EXISTS vehicle_logs (
       id TEXT PRIMARY KEY,
+      empresa_id TEXT NOT NULL DEFAULT 'EMP_001',
       veiculo_id TEXT NOT NULL,
       data TEXT NOT NULL,
       km_inicial REAL DEFAULT 0,
@@ -91,6 +94,7 @@ function migrate() {
     -- Tabela de scorecards mensais
     CREATE TABLE IF NOT EXISTS driver_scorecards (
       id TEXT PRIMARY KEY,
+      empresa_id TEXT NOT NULL DEFAULT 'EMP_001',
       entregador_id TEXT NOT NULL,
       mes_ano TEXT NOT NULL,
       taxa_sucesso_primeira_tentativa REAL DEFAULT 0,
@@ -107,6 +111,7 @@ function migrate() {
     -- Tabela de alertas
     CREATE TABLE IF NOT EXISTS alerts (
       id TEXT PRIMARY KEY,
+      empresa_id TEXT NOT NULL DEFAULT 'EMP_001',
       tipo TEXT NOT NULL CHECK(tipo IN ('desvio_rota','alta_ociosidade','falha_tentativa','sla_estourando','geofence')),
       entregador_id TEXT,
       mensagem TEXT NOT NULL,
@@ -166,6 +171,10 @@ function migrate() {
     CREATE INDEX IF NOT EXISTS idx_companies_status ON companies(status);
     CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
     CREATE INDEX IF NOT EXISTS idx_payments_empresa ON payments(empresa_id);
+    CREATE INDEX IF NOT EXISTS idx_deliveries_empresa ON deliveries(empresa_id);
+    CREATE INDEX IF NOT EXISTS idx_entregadores_empresa ON entregadores(empresa_id);
+
+    -- Migracoes retroativas via ALTER TABLE (ignora erro se coluna ja existe)
 
     CREATE TABLE IF NOT EXISTS tracking_sessions (
       id TEXT PRIMARY KEY,
@@ -177,6 +186,19 @@ function migrate() {
       FOREIGN KEY (delivery_id) REFERENCES deliveries(id)
     );
   `);
+
+  // Migracoes retroativas (ALTER TABLE para bancos existentes)
+  const migracoes = [
+    "ALTER TABLE entregadores ADD COLUMN empresa_id TEXT NOT NULL DEFAULT 'EMP_001'",
+    "ALTER TABLE veiculos ADD COLUMN empresa_id TEXT NOT NULL DEFAULT 'EMP_001'",
+    "ALTER TABLE deliveries ADD COLUMN empresa_id TEXT NOT NULL DEFAULT 'EMP_001'",
+    "ALTER TABLE vehicle_logs ADD COLUMN empresa_id TEXT NOT NULL DEFAULT 'EMP_001'",
+    "ALTER TABLE driver_scorecards ADD COLUMN empresa_id TEXT NOT NULL DEFAULT 'EMP_001'",
+    "ALTER TABLE alerts ADD COLUMN empresa_id TEXT NOT NULL DEFAULT 'EMP_001'",
+  ];
+  for (const sql of migracoes) {
+    try { db.exec(sql); } catch (e) { /* coluna ja existe */ }
+  }
 
   console.log('✅ Migrations executadas com sucesso');
 }
@@ -258,9 +280,14 @@ function seed() {
   }
 
   // Inserir entregadores
-  const insEnt = db.prepare('INSERT OR IGNORE INTO entregadores (id, nome, telefone, veiculo_id, status) VALUES (?, ?, ?, ?, ?)');
+  const empresasList = db.prepare('SELECT id FROM companies').all();
+  const getEmpresa = () => empresasList[Math.floor(Math.random() * empresasList.length)].id;
+
+  const insEnt = db.prepare('INSERT OR IGNORE INTO entregadores (id, empresa_id, nome, telefone, veiculo_id, status) VALUES (?, ?, ?, ?, ?, ?)');
   for (const e of entregadores) {
-    insEnt.run(e.id, e.nome, e.telefone, e.veiculo_id || null, 'offline');
+    const empId = getEmpresa();
+    insEnt.run(e.id, empId, e.nome, e.telefone, e.veiculo_id || null, 'offline');
+    e.empresa_id = empId; // Salvar pra usar nas entregas
   }
 
   // Gerar entregas nos ultimos 30 dias
@@ -277,10 +304,10 @@ function seed() {
   ];
 
   const insDelivery = db.prepare(`INSERT INTO deliveries 
-    (id, entregador_id, veiculo_id, cliente_nome, endereco, lat, lng, destino_lat, destino_lng, 
+    (id, empresa_id, entregador_id, veiculo_id, cliente_nome, endereco, lat, lng, destino_lat, destino_lng, 
      distancia_km, tempo_total_segundos, tempo_ocioso_segundos, consumo_combustivel_litros,
      tentativa_unica, status, horario_previsto, horario_inicio, horario_fim, nota_cliente, criada_em, valor)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 30);
@@ -329,7 +356,7 @@ function seed() {
       const valor = status === 'concluida' ? (10 + Math.floor(Math.random() * 90)) : 0;
 
       insDelivery.run(
-        `DEL_${dateStr}_${String(i).padStart(3, '0')}`, ent.id, ent.veiculo_id || null,
+        `DEL_${dateStr}_${String(i).padStart(3, '0')}`, ent.empresa_id || 'EMP_001', ent.id, ent.veiculo_id || null,
         cliente, bairro, latBase, lngBase, destLat, destLng,
         Math.round(distancia * 10) / 10,
         Math.round(duracaoMin * 60),
@@ -344,8 +371,8 @@ function seed() {
 
   // Gerar vehicle_logs para os ultimos 30 dias
   const insLog = db.prepare(`INSERT INTO vehicle_logs 
-    (id, veiculo_id, data, km_inicial, km_final, km_rodado_dia, tempo_ocioso_total_segundos, custo_combustivel_dia, custo_manutencao_dia)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    (id, empresa_id, veiculo_id, data, km_inicial, km_final, km_rodado_dia, tempo_ocioso_total_segundos, custo_combustivel_dia, custo_manutencao_dia)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
   for (const v of veiculos) {
     let kmAtual = 50000 + Math.floor(Math.random() * 10000);
@@ -359,8 +386,9 @@ function seed() {
       const custoComb = (kmDia / (v.consumo_medio_km_por_litro + (Math.random() - 0.5) * 2)) * 5.89;
       const custoManut = Math.random() * 30;
 
+      const logEmpresa = db.prepare('SELECT empresa_id FROM veiculos WHERE id = ?').get(v.id);
       insLog.run(
-        `${v.id}_${dateStr}`, v.id, dateStr,
+        `${v.id}_${dateStr}`, logEmpresa?.empresa_id || 'EMP_001', v.id, dateStr,
         kmAtual, kmFinal, kmDia, tempoOcioso,
         Math.round(custoComb * 100) / 100,
         Math.round(custoManut * 100) / 100
@@ -371,9 +399,9 @@ function seed() {
 
   // Gerar scorecards mensais
   const insScore = db.prepare(`INSERT INTO driver_scorecards 
-    (id, entregador_id, mes_ano, taxa_sucesso_primeira_tentativa, pontualidade_media, 
+    (id, empresa_id, entregador_id, mes_ano, taxa_sucesso_primeira_tentativa, pontualidade_media, 
      eficiencia_combustivel_km_por_litro, avaliacao_media_cliente, tempo_medio_parada_segundos, total_entregas, score_geral, selo)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
   const meses = ['2026-04', '2026-05', '2026-06'];
   for (const ent of entregadores) {
@@ -392,7 +420,7 @@ function seed() {
       else if (score >= 55) selo = 'bronze';
 
       insScore.run(
-        `${ent.id}_${mes}`, ent.id, mes,
+        `${ent.id}_${mes}`, ent.empresa_id || 'EMP_001', ent.id, mes,
         Math.round(txSucesso * 10) / 10,
         Math.round(pontualidade * 10) / 10,
         Math.round(eficiencia * 100) / 100,
@@ -405,7 +433,7 @@ function seed() {
   }
 
   // Gerar alertas mockados
-  const insAlert = db.prepare(`INSERT INTO alerts (id, tipo, entregador_id, mensagem, gravidade, criada_em) VALUES (?, ?, ?, ?, ?, ?)`);
+  const insAlert = db.prepare(`INSERT INTO alerts (id, empresa_id, tipo, entregador_id, mensagem, gravidade, criada_em) VALUES (?, ?, ?, ?, ?, ?, ?)`);
   
   const tiposAlert = ['desvio_rota', 'alta_ociosidade', 'falha_tentativa', 'sla_estourando', 'geofence'];
   const gravidades = ['baixo', 'medio', 'alto', 'critico'];
@@ -427,7 +455,7 @@ function seed() {
     }
     
     insAlert.run(
-      `ALERT_${i}`, tipo, ent.id, msg, grav, alertDate.toISOString()
+      `ALERT_${i}`, ent.empresa_id || 'EMP_001', tipo, ent.id, msg, grav, alertDate.toISOString()
     );
   }
 

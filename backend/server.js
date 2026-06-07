@@ -46,6 +46,20 @@ app.get('/', (req, res) => {
   res.send('Overons API - Servidor de rastreamento de entregadores');
 });
 
+// ==================== HELPER: FILTRO EMPRESA ====================
+function empresaFilter(req) {
+  const eid = req.query.empresa_id;
+  if (!eid) return { sql: '', params: [] };
+  return { sql: 'AND d.empresa_id = ?', params: [eid] };
+}
+function empresaFilterDeliveries(alias = 'd') {
+  return function(req) {
+    const eid = req.query.empresa_id;
+    if (!eid) return { sql: '', params: [] };
+    return { sql: `AND ${alias}.empresa_id = ?`, params: [eid] };
+  };
+}
+
 // ==================== API: DASHBOARD KPIs ====================
 
 app.get('/api/kpis', (req, res) => {

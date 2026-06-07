@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSocket from '../hooks/useSocket';
+import { setEmpresaId, getEmpresaId, api } from '../hooks/useApi';
 import DarkModeToggle from './DarkModeToggle';
 import KpiCards from './KpiCards';
 import Top3 from './Top3';
@@ -24,7 +25,16 @@ export default function CompanyDashboard() {
   const [showLogin, setShowLogin] = useState(false);
   const [pwdInput, setPwdInput] = useState('');
   const [pwdError, setPwdError] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState(getEmpresaId());
   const { socket, connected, drivers, deliveryLog } = useSocket();
+
+  // Carregar empresas (so para admin)
+  useEffect(() => {
+    if (adminMode) {
+      api('/api/admin/companies').then(setCompanies).catch(() => {});
+    }
+  }, [adminMode]);
 
   const openSection = (s) => {
     setSection(s);
@@ -119,7 +129,18 @@ export default function CompanyDashboard() {
       <div className={`slide-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h2><i className="fas fa-truck"></i> Overons</h2>
-          <button className="close-btn" onClick={closeSidebar}>✕</button>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {adminMode && companies.length > 0 && (
+              <select value={selectedCompany} onChange={e => { setSelectedCompany(e.target.value); setEmpresaId(e.target.value); }}
+                style={{padding:'4px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text)', fontSize:11, maxWidth:140}}>
+                <option value="">📊 Todas</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>{c.nome.substring(0,18)}</option>
+                ))}
+              </select>
+            )}
+            <button className="close-btn" onClick={closeSidebar}>✕</button>
+          </div>
         </div>
 
         <nav className="sidebar-nav">
