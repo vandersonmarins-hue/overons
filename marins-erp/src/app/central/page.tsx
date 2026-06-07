@@ -48,6 +48,7 @@ export default function CentralPage() {
           <h1 className="font-bold text-lg">Central de Monitoramento</h1>
         </div>
         <Link href="/central/clientes-list" className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-700 mr-2">Clientes</Link>
+        <Link href="/central/analise-documentos" className="bg-yellow-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-yellow-700 mr-2">📋 Análise</Link>
         <Link href="/central/transportadores" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 mr-2">Transportadores</Link>
         <Link href="/central/nova-entrega" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 mr-2">+ Nova Entrega</Link>
         <button onClick={load} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-white/5 px-4 py-2 rounded-xl"><RefreshCw size={14} /> Atualizar</button>

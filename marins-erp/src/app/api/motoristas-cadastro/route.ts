@@ -4,7 +4,7 @@ const motoristas: any[] = [];
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { nome, cpf, cnh, cnhCategoria, tipoVeiculo, telefone, email, endereco, dataNascimento, observacoes, documentos } = body;
+  const { nome, cpf, cnh, cnhCategoria, tipoVeiculo, telefone, email, endereco, dataNascimento, observacoes, documentos, certidoes } = body;
 
   if (!nome || !cpf) {
     return NextResponse.json({ erro: 'Nome e CPF sao obrigatorios' }, { status: 400 });
@@ -23,12 +23,14 @@ export async function POST(req: Request) {
     dataNascimento: dataNascimento || '',
     observacoes: observacoes || '',
     documentos: documentos || [],
-    status: 'disponivel',
+    certidoes: certidoes || {},
+    status: 'pendente', // pendente | aprovado | recusado
+    motivoRecusa: '',
     criadoEm: new Date().toISOString(),
   };
 
   motoristas.push(motorista);
-  return NextResponse.json({ success: true, id: motorista.id, message: 'Motorista cadastrado!' });
+  return NextResponse.json({ success: true, id: motorista.id, message: 'Cadastro enviado para análise! Acompanhe seu email.' });
 }
 
 export async function GET() {

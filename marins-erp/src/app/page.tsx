@@ -13,6 +13,7 @@ export default function Home() {
         <div className="flex flex-col gap-3">
           <a href="/dashboard/motorista" className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-lg">Painel do Motorista</a>
           <a href="/dashboard/integrado" className="inline-flex items-center justify-center gap-2 bg-green-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors shadow-lg">Painel Integrado (Overons)</a>
+          <a href="/cadastro-motorista" className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-3 rounded-xl font-medium hover:from-orange-600 hover:to-red-600 transition-colors shadow-lg mb-3">🚚 Quero ser Transportador</a>
           <a href="/central" className="inline-flex items-center justify-center gap-2 bg-purple-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-lg">Central de Monitoramento</a>
           <a href="/dashboard/empresa/relatorios" className="inline-flex items-center justify-center gap-2 bg-orange-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-orange-700 transition-colors shadow-lg">Relatorios da Frota</a>
           <a href="/rastreamento/PED-2024-001" className="inline-flex items-center justify-center gap-2 text-blue-600 bg-blue-100 dark:bg-blue-900/30 px-8 py-3 rounded-xl font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">Rastrear Pedido</a>
