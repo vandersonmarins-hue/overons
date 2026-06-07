@@ -1,11 +1,50 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Package, Truck, MapPin, Clock, TrendingUp, RefreshCw, X, ExternalLink } from 'lucide-react';
+import { Package, Truck, MapPin, Clock, TrendingUp, RefreshCw, X, ExternalLink, Lock, Shield } from 'lucide-react';
 import Link from 'next/link';
 import AcompanhamentoClientes from '@/components/central/AcompanhamentoClientes';
+import { loginMaster, logoutMaster, isMaster, getPermissoes } from '@/lib/permissoes';
 
 export default function CentralPage() {
+  const [autenticado, setAutenticado] = useState(false);
+  const [showLogin, setShowLogin] = useState(!isMaster());
+  const [senha, setSenha] = useState('');
+  const [erro, setErro] = useState('');
+
+  useEffect(() => { setAutenticado(isMaster()); }, []);
+
+  const entrar = () => {
+    if (loginMaster(senha)) {
+      setAutenticado(true);
+      setShowLogin(false);
+      setErro('');
+    } else {
+      setErro('Senha incorreta');
+    }
+  };
+
+  if (showLogin) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+        <div className="bg-gray-900/80 rounded-2xl p-8 border border-white/10 max-w-sm w-full text-center">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600/20 flex items-center justify-center mx-auto mb-4">
+            <Shield size={32} className="text-blue-400" />
+          </div>
+          <h1 className="text-white font-bold text-xl mb-2">Acesso Restrito</h1>
+          <p className="text-gray-400 text-sm mb-6">Esta área é apenas para a empresa</p>
+          <input type="password" value={senha} onChange={e => { setSenha(e.target.value); setErro(''); }}
+            onKeyDown={e => e.key === 'Enter' && entrar()}
+            placeholder="Senha mestra" autoFocus
+            className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 text-center mb-4 focus:outline-none focus:border-blue-500/50" />
+          {erro && <p className="text-red-400 text-sm mb-4">{erro}</p>}
+          <button onClick={entrar} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700">Acessar</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!autenticado) return null;
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
