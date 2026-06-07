@@ -670,24 +670,35 @@ io.on('connection', (socket) => {
 
   // Empresa envia mensagem para o motorista
   socket.on('send-message', (data) => {
-    console.log('📨 send-message recebido:', JSON.stringify(data));
-    if (!data || !data.driverId || !data.message) {
-      console.log('❌ send-message: dados invalidos');
-      return;
-    }
+    if (!data || !data.driverId || !data.message) return;
     const d = drivers.get(data.driverId);
-    console.log('🔍 Motorista encontrado:', d ? d.nome || d.id : 'NAO ENCONTRADO', 'socketId:', d?.socketId);
+    const msgId = 'MSG_' + Date.now();
+    const msgEntry = {
+      id: msgId,
+      driverId: data.driverId,
+      nomeMotorista: d?.nome || '',
+      empresa: data.empresa || 'Empresa',
+      message: data.message,
+      type: data.type || 'text',
+      sentAt: new Date().toISOString(),
+      readAt: null,
+    };
+    messageLog.push(msgEntry);
+
     if (d && d.socketId) {
-      io.to(d.socketId).emit('new-message', {
-        type: data.type || 'text',
-        message: data.message,
-        audioUrl: data.audioUrl || null,
-        empresa: data.empresa || 'Empresa',
-        timestamp: new Date().toISOString(),
-      });
-      console.log(`✅ Mensagem enviada via socket ${d.socketId}`);
-    } else {
-      console.log('❌ Motorista sem socket conectado');
+      io.to(d.socketId).emit('new-message', { ...msgEntry });
+      msgEntry.entregue = true;
+    }
+    io.emit('message-log-update', messageLog.slice(-50));
+  });
+
+  // Motorista confirma leitura
+  socket.on('message-read', (data) => {
+    if (!data || !data.messageId) return;
+    const msg = messageLog.find(m => m.id === data.messageId);
+    if (msg && !msg.readAt) {
+      msg.readAt = new Date().toISOString();
+      io.emit('message-log-update', messageLog.slice(-50));
     }
   });
 
@@ -889,6 +900,14 @@ app.get('/api/admin/reports/inadimplencia', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==================== ARMAZENAMENTO DE MENSAGENS ====================
+const messageLog = [];
+
+// API: historico de mensagens
+app.get('/api/messages', (req, res) => {
+  res.json(messageLog.slice(-100).reverse());
+});
+
 // ==================== API: MENSAGENS VIA REST (FALLBACK) ====================
 
 // Enviar mensagem via REST (mais confiavel que Socket.IO)
@@ -897,21 +916,21 @@ app.post('/api/send-message', (req, res) => {
     const { driverId, message, empresa } = req.body;
     if (!driverId || !message) return res.status(400).json({ error: 'driverId e message obrigatorios' });
 
-    // Tenta enviar via Socket.IO primeiro
     const d = drivers.get(driverId);
+    const msgId = 'MSG_' + Date.now();
+    const msgEntry = {
+      id: msgId, driverId, nomeMotorista: d?.nome || '',
+      empresa: empresa || 'Empresa', message, type: 'text',
+      sentAt: new Date().toISOString(), readAt: null,
+    };
+    messageLog.push(msgEntry);
     let entregue = false;
 
     if (d && d.socketId) {
-      io.to(d.socketId).emit('new-message', {
-        type: 'text',
-        message,
-        audioUrl: null,
-        empresa: empresa || 'Empresa',
-        timestamp: new Date().toISOString(),
-      });
+      io.to(d.socketId).emit('new-message', { ...msgEntry });
       entregue = true;
-      console.log(`✅ Mensagem REST entregue via socket para ${driverId}`);
     }
+    io.emit('message-log-update', messageLog.slice(-50));
 
     // Fallback: envia para TODOS os motoristas conectados (broadcast)
     if (!entregue) {

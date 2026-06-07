@@ -12,6 +12,7 @@ import DeliveryPanel from './DeliveryPanel';
 import ReportsPanel from './ReportsPanel';
 import AdminPanel from './AdminPanel';
 import MessageSender from './MessageSender';
+import MessageHistory from './MessageHistory';
 import './CompanyDashboard.css';
 
 const ADMIN_KEY = 'overons_admin';
@@ -222,6 +223,8 @@ export default function CompanyDashboard() {
           {section === 'messages' && (
             <div className="side-section">
               <MessageSender socket={socket} drivers={drivers} />
+              <hr style={{border:'none',borderTop:'1px solid var(--border)',margin:'20px 0 12px'}}/>
+              <MessageHistory socket={socket} />
             </div>
           )}
           {section === 'admin' && (
