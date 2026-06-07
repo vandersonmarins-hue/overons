@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+*.md
+INICIAR.bat
+INICIAR_APP.bat
+ds.bat
+deep.py
+devhelp.py
+codex.exe
+.DS_Store

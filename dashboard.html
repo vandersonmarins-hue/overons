@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overons - Rastreamento de Entregadores</title>
+    
+    <!-- Leaflet CSS (mapa) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial; background: #1a1a2e; }
+        .header {
+            background: #16213e;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status.online { background: #00b894; padding: 8px 15px; border-radius: 20px; }
+        .container { display: flex; height: calc(100vh - 70px); }
+        #map { flex: 3; height: 100%; }
+        .sidebar {
+            flex: 1;
+            background: #16213e;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .driver-card {
+            background: #0f3460;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 3px solid #00b894;
+        }
+        .stats {
+            background: #0f3460;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .stats .number { font-size: 2rem; font-weight: bold; color: #00b894; }
+        .no-drivers { text-align: center; color: #888; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📦 Overons - Rastreamento de Entregas</h1>
+        <div class="status online" id="connectionStatus">🟢 Conectando...</div>
+    </div>
+    
+    <div class="container">
+        <div id="map"></div>
+        <div class="sidebar">
+            <div class="stats">
+                <div>🚚 Entregadores ativos</div>
+                <div class="number" id="driverCount">0</div>
+            </div>
+            <h3>📍 Entregadores</h3>
+            <div id="driversList">
+                <div class="no-drivers">Aguardando entregadores...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Configurar mapa
+        const map = L.map('map').setView([-23.5505, -46.6333], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        const markers = new Map();
+        const socket = io(); // Conecta ao mesmo host do servidor
+        
+        const connectionStatus = document.getElementById('connectionStatus');
+        const driverCountEl = document.getElementById('driverCount');
+        const driversList = document.getElementById('driversList');
+        
+        socket.on('connect', () => {
+            console.log('Conectado');
+            connectionStatus.innerHTML = '🟢 Conectado';
+        });
+        
+        socket.on('disconnect', () => {
+            connectionStatus.innerHTML = '🔴 Desconectado';
+        });
+        
+        socket.on('location-update', (data) => {
+            console.log('Recebido:', data);
+            const { driverId, latitude, longitude } = data;
+            
+            if (markers.has(driverId)) {
+                markers.get(driverId).setLatLng([latitude, longitude]);
+            } else {
+                const marker = L.marker([latitude, longitude]).addTo(map);
+                marker.bindPopup(`<b>Entregador ${driverId}</b>`);
+                markers.set(driverId, marker);
+            }
+            
+            // Atualizar lista
+            driverCountEl.textContent = markers.size;
+            if (markers.size === 0) {
+                driversList.innerHTML = '<div class="no-drivers">Nenhum entregador ativo</div>';
+            } else {
+                let html = '';
+                for (let [driverId, marker] of markers) {
+                    const latLng = marker.getLatLng();
+                    html += `
+                        <div class="driver-card">
+                            <h4>🚚 Entregador ${driverId.substring(0, 8)}</h4>
+                            <p>📍 ${latLng.lat.toFixed(6)}, ${latLng.lng.toFixed(6)}</p>
+                        </div>
+                    `;
+                }
+                driversList.innerHTML = html;
+            }
+        });
+        
+        // ENTREGADOR DE TESTE ATIVADO
+        setTimeout(() => {
+            let lat = -23.5505;
+            let lng = -46.6333;
+            setInterval(() => {
+                lat += (Math.random() - 0.5) * 0.02;
+                lng += (Math.random() - 0.5) * 0.02;
+                socket.emit('driver-location', {
+                    driverId: 'TESTE_001',
+                    latitude: lat,
+                    longitude: lng,
+                    timestamp: new Date().toISOString()
+                });
+            }, 3000);
+        }, 2000);
+        
+        console.log('Dashboard pronto!');
+    </script>
+</body>
+</html>

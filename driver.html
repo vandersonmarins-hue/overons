@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Overons - Entregador</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        /* Card de ganhos */
+        .earnings-card {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border-radius: 20px;
+            padding: 25px;
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .earnings-card .label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .earnings-card .value {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .earnings-card .small {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        /* Cards de informação */
+        .info-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .info-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .info-card h3 i {
+            color: #667eea;
+        }
+        
+        /* Status do entregador */
+        .status-toggle {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .status-btn.online {
+            background: #00b894;
+            color: white;
+        }
+        
+        .status-btn.offline {
+            background: #d63031;
+            color: white;
+        }
+        
+        .status-btn.active {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        /* Localização atual */
+        .location-box {
+            background: #f0f0f0;
+            border-radius: 15px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        /* Ranking */
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .ranking-item .position {
+            font-weight: bold;
+            width: 40px;
+        }
+        
+        .ranking-item .name {
+            flex: 1;
+        }
+        
+        .ranking-item .earnings {
+            color: #11998e;
+            font-weight: bold;
+        }
+        
+        /* Meta diária */
+        .goal-bar {
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .goal-progress {
+            background: linear-gradient(90deg, #11998e, #38ef7d);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        /* Botão de instalação */
+        .install-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        
+        .install-banner button {
+            background: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            color: #667eea;
+            cursor: pointer;
+        }
+        
+        /* Notificações */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            animation: slideUp 0.3s ease;
+            z-index: 1000;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        /* Mapa pequeno */
+        .mini-map {
+            height: 200px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            margin-top: 10px;
+        }
+        
+        .btn-entregar {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Banner de instalação do app -->
+        <div class="install-banner" id="installBanner">
+            <div>
+                <i class="fas fa-download"></i> 
+                <strong>Instalar Overons App</strong><br>
+                <small>Receba notificações e ganhe bônus</small>
+            </div>
+            <button id="installBtn">Instalar</button>
+        </div>
+        
+        <!-- Card de ganhos -->
+        <div class="earnings-card">
+            <div class="label">💰 Ganhos Hoje</div>
+            <div class="value" id="todayEarnings">R$ 0,00</div>
+            <div class="small">Meta diária: <span id="dailyGoal">R$ 150,00</span></div>
+            <div class="goal-bar">
+                <div class="goal-progress" id="goalProgress" style="width: 0%">0%</div>
+            </div>
+        </div>
+        
+        <!-- Status do entregador -->
+        <div class="info-card">
+            <h3><i class="fas fa-circle"></i> Status</h3>
+            <div class="status-toggle">
+                <button class="status-btn online" id="btnOnline">🟢 Online</button>
+                <button class="status-btn offline" id="btnOffline">🔴 Offline</button>
+            </div>
+            <div id="statusText" style="text-align: center; color: #00b894;">● Você está online</div>
+        </div>
+        
+        <!-- Localização atual -->
+        <div class="info-card">
+            <h3><i class="fas fa-map-marker-alt"></i> Minha Localização</h3>
+            <div id="locationStatus">🟡 Aguardando GPS...</div>
+            <div class="location-box" id="coords">Lat: --, Lng: --</div>
+            <div id="accuracy"></div>
+            <button class="btn-entregar" id="startTrackingBtn" disabled>
+                <i class="fas fa-play"></i> Iniciar Rastreamento
+            </button>
+        </div>
+        
+        <!-- Ranking -->
+        <div class="info-card">
+            <h3><i class="fas fa-trophy"></i> Ranking do Dia</h3>
+            <div id="rankingList">
+                <div class="ranking-item">
+                    <span class="position">🥇 1º</span>
+                    <span class="name">Carlos Silva</span>
+                    <span class="earnings">R$ 287,00</span>
+                </div>
+                <div class="ranking-item">
+                    <span class="position">🥈 2º</span>
+                    <span class="name">Você</span>
+                    <span class="earnings" id="myRankEarnings">R$ 0,00</span>
+                </div>
+                <div class="ranking-item">
+                    <span class="position">🥉 3º</span>
+                    <span class="name">Marcos Souza</span>
+                    <span class="earnings">R$ 198,00</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Histórico de entregas -->
+        <div class="info-card">
+            <h3><i class="fas fa-history"></i> Últimas Entregas</h3>
+            <div id="historyList">
+                <div style="text-align: center; color: #999;">Nenhuma entrega hoje</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // Dados do entregador
+        const driverId = 'ENTREGADOR_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        let isOnline = true;
+        let trackingActive = false;
+        let watchId = null;
+        let socket = null;
+        let todayDeliveries = [];
+        let todayEarnings = 0;
+        const DAILY_GOAL = 150;
+        
+        // Elementos da UI
+        const todayEarningsEl = document.getElementById('todayEarnings');
+        const dailyGoalEl = document.getElementById('dailyGoal');
+        const goalProgressEl = document.getElementById('goalProgress');
+        const locationStatusEl = document.getElementById('locationStatus');
+        const coordsEl = document.getElementById('coords');
+        const startTrackingBtn = document.getElementById('startTrackingBtn');
+        const btnOnline = document.getElementById('btnOnline');
+        const btnOffline = document.getElementById('btnOffline');
+        const statusText = document.getElementById('statusText');
+        const myRankEarnings = document.getElementById('myRankEarnings');
+        
+        // Mostrar ID do entregador
+        console.log(`Seu ID: ${driverId}`);
+        
+        // Atualizar interface de ganhos
+        function updateEarningsUI() {
+            todayEarningsEl.textContent = `R$ ${todayEarnings.toFixed(2)}`;
+            myRankEarnings.textContent = `R$ ${todayEarnings.toFixed(2)}`;
+            const percent = Math.min((todayEarnings / DAILY_GOAL) * 100, 100);
+            goalProgressEl.style.width = `${percent}%`;
+            goalProgressEl.textContent = `${Math.round(percent)}%`;
+            
+            if (percent >= 100) {
+                mostrarNotificacao('🎉 Parabéns! Você bateu sua meta diária! +R$ 20 bônus');
+                todayEarnings += 20;
+                updateEarningsUI();
+            }
+        }
+        
+        // Simular entrega concluída
+        function completarEntrega() {
+            if (!isOnline) {
+                mostrarNotificacao('Você precisa estar online para receber entregas!');
+                return;
+            }
+            
+            const valor = Math.floor(Math.random() * 30) + 15; // R$15 a R$45
+            todayEarnings += valor;
+            
+            const entrega = {
+                id: Date.now(),
+                valor: valor,
+                endereco: `Rua ${Math.floor(Math.random() * 1000)}, ${Math.floor(Math.random() * 100)}`,
+                hora: new Date().toLocaleTimeString()
+            };
+            todayDeliveries.unshift(entrega);
+            
+            updateEarningsUI();
+            updateHistoryUI();
+            
+            mostrarNotificacao(`✅ Entrega concluída! +R$ ${valor.toFixed(2)}`);
+            
+            // Enviar para o servidor
+            if (socket && socket.connected) {
+                socket.emit('delivery-completed', {
+                    driverId: driverId,
+                    value: valor,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+        
+        // Atualizar histórico
+        function updateHistoryUI() {
+            const historyList = document.getElementById('historyList');
+            if (todayDeliveries.length === 0) {
+                historyList.innerHTML = '<div style="text-align: center; color: #999;">Nenhuma entrega hoje</div>';
+                return;
+            }
+            
+            let html = '';
+            for (let i = 0; i < Math.min(todayDeliveries.length, 5); i++) {
+                const d = todayDeliveries[i];
+                html += `
+                    <div class="ranking-item">
+                        <span>📦 ${d.endereco}</span>
+                        <span class="earnings">+R$ ${d.valor.toFixed(2)}</span>
+                    </div>
+                `;
+            }
+            historyList.innerHTML = html;
+        }
+        
+        // Notificações
+        function mostrarNotificacao(mensagem) {
+            const notif = document.createElement('div');
+            notif.className = 'notification';
+            notif.innerHTML = `<i class="fas fa-bell"></i> ${mensagem}`;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 3000);
+        }
+        
+        // Simular nova entrega a cada 30-60 segundos
+        setInterval(() => {
+            if (isOnline && trackingActive) {
+                if (Math.random() > 0.7) {
+                    mostrarNotificacao(`📦 Nova entrega disponível! Clique para aceitar.`);
+                    // Simular aceitação após 5 segundos
+                    setTimeout(() => {
+                        if (Math.random() > 0.3) {
+                            completarEntrega();
+                        }
+                    }, 5000);
+                }
+            }
+        }, 30000);
+        
+        // Botões de status
+        btnOnline.addEventListener('click', () => {
+            isOnline = true;
+            btnOnline.classList.add('active');
+            btnOffline.classList.remove('active');
+            statusText.innerHTML = '🟢 Você está online';
+            statusText.style.color = '#00b894';
+            mostrarNotificacao('Você está online! Novas entregas chegarão em breve.');
+            
+            if (trackingActive && socket) {
+                socket.emit('driver-status', { driverId, status: 'online' });
+            }
+        });
+        
+        btnOffline.addEventListener('click', () => {
+            isOnline = false;
+            btnOffline.classList.add('active');
+            btnOnline.classList.remove('active');
+            statusText.innerHTML = '🔴 Você está offline';
+            statusText.style.color = '#d63031';
+            mostrarNotificacao('Você está offline. Entregas não serão atribuídas.');
+            
+            if (socket) {
+                socket.emit('driver-status', { driverId, status: 'offline' });
+            }
+        });
+        
+        // Geolocalização
+        function startTracking() {
+            if (!navigator.geolocation) {
+                locationStatusEl.innerHTML = '❌ Seu navegador não suporta GPS';
+                return;
+            }
+            
+            locationStatusEl.innerHTML = '🟢 Buscando localização...';
+            
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    
+                    coordsEl.innerHTML = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+                    locationStatusEl.innerHTML = '🟢 GPS ativo';
+                    
+                    if (accuracy > 50) {
+                        document.getElementById('accuracy').innerHTML = `📡 Precisão: ${Math.round(accuracy)}m (melhorando...)`;
+                    } else {
+                        document.getElementById('accuracy').innerHTML = `✅ Precisão: ${Math.round(accuracy)}m`;
+                    }
+                    
+                    // Enviar para o servidor se estiver online
+                    if (socket && socket.connected && isOnline) {
+                        socket.emit('driver-location', {
+                            driverId: driverId,
+                            latitude: lat,
+                            longitude: lng,
+                            timestamp: new Date().toISOString(),
+                            accuracy: accuracy
+                        });
+                    }
+                    
+                    startTrackingBtn.disabled = false;
+                    startTrackingBtn.innerHTML = '<i class="fas fa-check"></i> Rastreamento Ativo';
+                },
+                (error) => {
+                    console.error('GPS error:', error);
+                    locationStatusEl.innerHTML = '❌ Erro ao acessar GPS';
+                    let msg = '';
+                    switch(error.code) {
+                        case 1: msg = 'Permissão negada. Ative o GPS nas configurações.'; break;
+                        case 2: msg = 'Sinal GPS indisponível.'; break;
+                        case 3: msg = 'Tempo esgotado. Tente novamente.'; break;
+                    }
+                    document.getElementById('accuracy').innerHTML = msg;
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+            
+            trackingActive = true;
+        }
+        
+        startTrackingBtn.addEventListener('click', startTracking);
+        
+        // Conectar ao servidor
+        function connectSocket() {
+            socket = io(); // Conecta ao mesmo host do servidor
+            
+            socket.on('connect', () => {
+                console.log('Conectado ao servidor');
+                mostrarNotificacao('Conectado ao servidor Overons!');
+                socket.emit('driver-register', { driverId, status: isOnline ? 'online' : 'offline' });
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('Desconectado');
+                mostrarNotificacao('⚠️ Conexão perdida. Reconectando...');
+                setTimeout(connectSocket, 3000);
+            });
+            
+            socket.on('new-delivery', (delivery) => {
+                if (isOnline) {
+                    mostrarNotificacao(`📦 Nova entrega! ${delivery.pickup} → ${delivery.dropoff}`);
+                }
+            });
+        }
+        
+        connectSocket();
+        
+        // PWA - Instalação do app
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installBanner').style.display = 'flex';
+        });
+        
+        document.getElementById('installBtn').addEventListener('click', () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(() => {
+                    document.getElementById('installBanner').style.display = 'none';
+                });
+            }
+        });
+        
+        // Mensagem de boas-vindas
+        setTimeout(() => {
+            mostrarNotificacao(`🎉 Bem-vindo ${driverId}! Ative o GPS para começar a ganhar.`);
+        }, 1000);
+        
+        // Simular ganhos iniciais para demo
+        setTimeout(() => {
+            if (todayEarnings === 0) {
+                todayEarnings = 45.50;
+                updateEarningsUI();
+                updateHistoryUI();
+                mostrarNotificacao('💰 Bônus de boas-vindas: R$ 45,50');
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

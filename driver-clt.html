@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Overons CLT - Entregador Profissional</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding-bottom: 80px;
+        }
+        
+        /* Header com status do trabalhador */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .worker-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-badge.working { background: #00b894; }
+        .status-badge.break { background: #f39c12; }
+        .status-badge.off { background: #d63031; }
+        
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+        
+        /* Container principal */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .card h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #1a1a2e;
+            border-left: 4px solid #667eea;
+            padding-left: 12px;
+        }
+        
+        /* Botões */
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: #00b894;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #d63031;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #667eea;
+            color: #667eea;
+        }
+        
+        /* Grid de informações */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .info-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        
+        .info-item .label {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .info-item .value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a1a2e;
+        }
+        
+        /* Formulário de entrega */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        /* Evidências */
+        .evidence-area {
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .evidence-area img {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        
+        .signature-area {
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            height: 150px;
+            background: white;
+            margin-top: 10px;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 5px;
+            border-radius: 15px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Entrega pendente */
+        .pending-delivery {
+            background: linear-gradient(135deg, #fff5e6 0%, #ffe6f0 100%);
+            border-left: 4px solid #f39c12;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 20px;
+            padding: 20px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        /* Toast de notificação */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            animation: slideUp 0.3s ease;
+            z-index: 1000;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        /* Botão de entrega flutuante */
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 30px;
+            background: linear-gradient(135deg, #00b894 0%, #38ef7d 100%);
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 90;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2><i class="fas fa-truck"></i> Overons CLT</h2>
+            <div id="workerId" style="font-size: 12px; opacity: 0.8;"></div>
+        </div>
+        <div class="worker-status">
+            <div>
+                <span class="status-badge off" id="statusBadge">🔴 Offline</span>
+                <span id="statusText">Fora de expediente</span>
+            </div>
+            <div class="timer" id="workTimer">00:00:00</div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+            <button class="tab" data-tab="delivery">📦 Nova Entrega</button>
+            <button class="tab" data-tab="history">📜 Histórico</button>
+            <button class="tab" data-tab="reports">📈 Relatórios</button>
+        </div>
+        
+        <!-- Tab Dashboard -->
+        <div class="tab-content active" id="tab-dashboard">
+            <div class="card">
+                <h3><i class="fas fa-chart-line"></i> Resumo do Dia</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="label">⏰ Horas Trabalhadas</div>
+                        <div class="value" id="hoursWorked">0h</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">📦 Entregas Hoje</div>
+                        <div class="value" id="deliveriesToday">0</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">📍 KM Rodados</div>
+                        <div class="value" id="totalKm">0</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">⏱️ Tempo Médio</div>
+                        <div class="value" id="avgTime">0 min</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><i class="fas fa-clock"></i> Controle de Jornada</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-success" id="startWorkBtn"><i class="fas fa-play"></i> Iniciar Expediente</button>
+                    <button class="btn btn-warning" id="startBreakBtn"><i class="fas fa-coffee"></i> Pausa</button>
+                    <button class="btn btn-danger" id="endWorkBtn"><i class="fas fa-stop"></i> Encerrar Dia</button>
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 10px;">
+                    <div><strong>Início:</strong> <span id="startTime">--:--</span></div>
+                    <div><strong>Pausas:</strong> <span id="breakTime">0 min</span></div>
+                    <div><strong>Efetivo trabalhado:</strong> <span id="effectiveTime">0h</span></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><i class="fas fa-tasks"></i> Próximas Entregas</h3>
+                <div id="nextDeliveries">
+                    <div style="text-align: center; color: #999;">Nenhuma entrega agendada</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab Nova Entrega -->
+        <div class="tab-content" id="tab-delivery">
+            <div class="card pending-delivery" id="deliveryForm">
+                <h3><i class="fas fa-clipboard-list"></i> Comprovante de Entrega</h3>
+                
+                <div class="form-group">
+                    <label>🔢 Número da Entrega</label>
+                    <input type="text" id="deliveryNumber" placeholder="Ex: ENT-2024-001" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label>📍 Endereço de Entrega</label>
+                    <input type="text" id="deliveryAddress" placeholder="Rua, número, bairro">
+                </div>
+                
+                <div class="form-group">
+                    <label>👤 Nome de quem recebeu</label>
+                    <input type="text" id="receiverName" placeholder="Nome completo">
+                </div>
+                
+                <div class="form-group">
+                    <label>🆔 Documento (RG/CPF)</label>
+                    <input type="text" id="receiverDoc" placeholder="Ex: 123.456.789-00">
+                </div>
+                
+                <div class="form-group">
+                    <label>📅 Data e Hora da Entrega</label>
+                    <input type="datetime-local" id="deliveryDateTime">
+                </div>
+                
+                <div class="form-group">
+                    <label>📏 Distância percorrida (km)</label>
+                    <input type="number" id="deliveryKm" step="0.1" placeholder="Ex: 5.2">
+                </div>
+                
+                <div class="form-group">
+                    <label>⏱️ Tempo de entrega (minutos)</label>
+                    <input type="number" id="deliveryTime" placeholder="Tempo desde a saída">
+                </div>
+                
+                <div class="form-group">
+                    <label>📸 Evidência 1 - Foto da mercadoria</label>
+                    <div class="evidence-area" id="photoArea">
+                        <i class="fas fa-camera"></i> Clique para tirar foto
+                        <img id="photoPreview" style="display: none;">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>🖊️ Evidência 2 - Assinatura digital</label>
+                    <canvas id="signatureCanvas" class="signature-area" width="400" height="150"></canvas>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <button class="btn btn-outline" id="clearSignature">Limpar</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>📸 Evidência 3 - Nota fiscal/Comprovante</label>
+                    <div class="evidence-area" id="invoiceArea">
+                        <i class="fas fa-receipt"></i> Clique para anexar nota
+                        <img id="invoicePreview" style="display: none;">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>⭐ Condição da mercadoria</label>
+                    <select id="goodsCondition">
+                        <option value="excelente">Excelente - Sem avarias</option>
+                        <option value="bom">Bom - Pequenas marcas</option>
+                        <option value="avariado">Avariado - Com danos</option>
+                        <option value="extraviado">Extraviado - Não entregue</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>📝 Observações</label>
+                    <textarea id="observations" rows="3" placeholder="Alguma observação importante?"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>⭐ Avaliação do cliente (0-5)</label>
+                    <select id="customerRating">
+                        <option value="5">⭐⭐⭐⭐⭐ - Excelente</option>
+                        <option value="4">⭐⭐⭐⭐ - Bom</option>
+                        <option value="3">⭐⭐⭐ - Regular</option>
+                        <option value="2">⭐⭐ - Ruim</option>
+                        <option value="1">⭐ - Péssimo</option>
+                    </select>
+                </div>
+                
+                <button class="btn btn-primary" id="submitDelivery" style="width: 100%; margin-top: 10px;">
+                    <i class="fas fa-check-circle"></i> Finalizar Entrega
+                </button>
+            </div>
+        </div>
+        
+        <!-- Tab Histórico -->
+        <div class="tab-content" id="tab-history">
+            <div class="card">
+                <h3><i class="fas fa-history"></i> Histórico de Entregas</h3>
+                <div id="historyList">
+                    <div style="text-align: center; color: #999;">Nenhuma entrega registrada</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab Relatórios -->
+        <div class="tab-content" id="tab-reports">
+            <div class="card">
+                <h3><i class="fas fa-chart-bar"></i> Relatório Semanal</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="label">Total de Entregas</div>
+                        <div class="value" id="weeklyDeliveries">0</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">KM Total</div>
+                        <div class="value" id="weeklyKm">0</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Horas Trabalhadas</div>
+                        <div class="value" id="weeklyHours">0</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Média Avaliação</div>
+                        <div class="value" id="avgRating">0</div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="exportReport" style="width: 100%; margin-top: 15px;">
+                    <i class="fas fa-download"></i> Exportar Relatório (CSV)
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <button class="fab" id="fabDelivery"><i class="fas fa-plus"></i></button>
+    
+    <!-- Modal de confirmação -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle"></h3>
+            <p id="modalMessage"></p>
+            <button class="btn btn-primary" id="modalConfirm">Confirmar</button>
+            <button class="btn btn-outline" id="modalCancel">Cancelar</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // ==================== VARIÁVEIS GLOBAIS ====================
+        const driverId = 'ENT_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        let workStartTime = null;
+        let breakStartTime = null;
+        let totalBreakTime = 0;
+        let isWorking = false;
+        let currentDelivery = null;
+        let deliveries = [];
+        let photoData = null;
+        let invoiceData = null;
+        let signatureData = null;
+        
+        // Elementos DOM
+        const workerIdEl = document.getElementById('workerId');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusText = document.getElementById('statusText');
+        const workTimer = document.getElementById('workTimer');
+        const hoursWorked = document.getElementById('hoursWorked');
+        const deliveriesToday = document.getElementById('deliveriesToday');
+        const totalKm = document.getElementById('totalKm');
+        const avgTime = document.getElementById('avgTime');
+        const startTimeSpan = document.getElementById('startTime');
+        const breakTimeSpan = document.getElementById('breakTime');
+        const effectiveTimeSpan = document.getElementById('effectiveTime');
+        
+        // Configurar canvas de assinatura
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+        
+        function initSignature() {
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stopDrawing);
+            clearSignature();
+        }
+        
+        function startDrawing(e) {
+            drawing = true;
+            const pos = getCanvasCoordinates(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+        
+        function draw(e) {
+            if (!drawing) return;
+            e.preventDefault();
+            const pos = getCanvasCoordinates(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+        
+        function stopDrawing() {
+            drawing = false;
+            ctx.beginPath();
+        }
+        
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            let x = (clientX - rect.left) * scaleX;
+            let y = (clientY - rect.top) * scaleY;
+            x = Math.min(Math.max(0, x), canvas.width);
+            y = Math.min(Math.max(0, y), canvas.height);
+            return { x, y };
+        }
+        
+        function clearSignature() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ddd';
+            ctx.font = '12px Arial';
+            ctx.fillText('Assine aqui', 20, 50);
+            signatureData = null;
+        }
+        
+        // Evidências de foto
+        function setupEvidenceArea(areaId, imgId, callback) {
+            const area = document.getElementById(areaId);
+            const img = document.getElementById(imgId);
+            area.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.capture = 'environment';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            img.src = e.target.result;
+                            img.style.display = 'block';
+                            callback(e.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+                input.click();
+            });
+        }
+        
+        // Atualizar timer
+        function updateWorkTimer() {
+            if (isWorking && workStartTime) {
+                const now = new Date();
+                let worked = (now - workStartTime) / 1000 - totalBreakTime;
+                const hours = Math.floor(worked / 3600);
+                const minutes = Math.floor((worked % 3600) / 60);
+                const seconds = Math.floor(worked % 60);
+                workTimer.textContent = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+                hoursWorked.textContent = `${hours}h${minutes}min`;
+                const effective = worked / 3600;
+                effectiveTimeSpan.textContent = `${effective.toFixed(1)}h`;
+            }
+        }
+        
+        // Atualizar estatísticas
+        function updateStats() {
+            const today = new Date().toDateString();
+            const todayDeliveries = deliveries.filter(d => new Date(d.datetime).toDateString() === today);
+            deliveriesToday.textContent = todayDeliveries.length;
+            const totalKmValue = todayDeliveries.reduce((sum, d) => sum + (d.km || 0), 0);
+            totalKm.textContent = `${totalKmValue.toFixed(1)} km`;
+            const avgTimeValue = todayDeliveries.length > 0 ? 
+                (todayDeliveries.reduce((sum, d) => sum + (d.time || 0), 0) / todayDeliveries.length).toFixed(0) : 0;
+            avgTime.textContent = `${avgTimeValue} min`;
+            
+            // Atualizar histórico
+            const historyList = document.getElementById('historyList');
+            if (deliveries.length === 0) {
+                historyList.innerHTML = '<div style="text-align: center; color: #999;">Nenhuma entrega registrada</div>';
+            } else {
+                let html = '';
+                deliveries.slice().reverse().forEach(d => {
+                    html += `
+                        <div style="border-bottom: 1px solid #eee; padding: 10px 0;">
+                            <div><strong>${d.number}</strong> - ${d.address.substring(0, 40)}</div>
+                            <div style="font-size: 12px; color: #666;">
+                                Recebido por: ${d.receiver} | ${new Date(d.datetime).toLocaleString()}
+                            </div>
+                            <div style="font-size: 12px; color: #00b894;">${d.km} km | ${d.time} min</div>
+                            ${d.obs ? `<div style="font-size: 11px; color: #999;">Obs: ${d.obs}</div>` : ''}
+                        </div>
+                    `;
+                });
+                historyList.innerHTML = html;
+            }
+            
+            // Atualizar relatório semanal
+            const last7Days = deliveries.filter(d => {
+                const diff = (new Date() - new Date(d.datetime)) / (1000 * 60 * 60 * 24);
+                return diff <= 7;
+            });
+            document.getElementById('weeklyDeliveries').textContent = last7Days.length;
+            document.getElementById('weeklyKm').textContent = `${last7Days.reduce((s,d) => s + (d.km||0), 0).toFixed(1)} km`;
+            const weeklyHoursValue = (last7Days.reduce((s,d) => s + (d.time||0), 0) / 60).toFixed(1);
+            document.getElementById('weeklyHours').textContent = `${weeklyHoursValue}h`;
+            const avgRating = last7Days.length > 0 ? 
+                (last7Days.reduce((s,d) => s + (d.rating||0), 0) / last7Days.length).toFixed(1) : 0;
+            document.getElementById('avgRating').textContent = avgRating;
+        }
+        
+        // Iniciar expediente
+        function startWork() {
+            workStartTime = new Date();
+            totalBreakTime = 0;
+            isWorking = true;
+            statusBadge.className = 'status-badge working';
+            statusBadge.innerHTML = '🟢 Trabalhando';
+            statusText.textContent = 'Em expediente';
+            startTimeSpan.textContent = workStartTime.toLocaleTimeString();
+            mostrarToast('✅ Expediente iniciado! Boas entregas!');
+            setInterval(updateWorkTimer, 1000);
+        }
+        
+        // Pausa
+        function startBreak() {
+            if (!isWorking) {
+                mostrarToast('Você precisa estar em expediente para fazer pausa');
+                return;
+            }
+            if (breakStartTime) {
+                const breakDuration = (new Date() - breakStartTime) / 1000;
+                totalBreakTime += breakDuration;
+                breakStartTime = null;
+                statusBadge.className = 'status-badge working';
+                statusBadge.innerHTML = '🟢 Trabalhando';
+                statusText.textContent = 'Em expediente';
+                mostrarToast('Voltou do descanso!');
+            } else {
+                breakStartTime = new Date();
+                statusBadge.className = 'status-badge break';
+                statusBadge.innerHTML = '🟡 Pausa';
+                statusText.textContent = 'Em pausa';
+                mostrarToast('☕ Pausa iniciada');
+            }
+            updateBreakTime();
+        }
+        
+        function updateBreakTime() {
+            let total = totalBreakTime;
+            if (breakStartTime) {
+                total += (new Date() - breakStartTime) / 1000;
+            }
+            const minutes = Math.floor(total / 60);
+            breakTimeSpan.textContent = `${minutes} min`;
+        }
+        
+        // Finalizar entrega
+        function submitDelivery() {
+            const delivery = {
+                number: 'ENT-' + new Date().getTime(),
+                address: document.getElementById('deliveryAddress').value,
+                receiver: document.getElementById('receiverName').value,
+                receiverDoc: document.getElementById('receiverDoc').value,
+                datetime: document.getElementById('deliveryDateTime').value,
+                km: parseFloat(document.getElementById('deliveryKm').value) || 0,
+                time: parseInt(document.getElementById('deliveryTime').value) || 0,
+                condition: document.getElementById('goodsCondition').value,
+                obs: document.getElementById('observations').value,
+                rating: parseInt(document.getElementById('customerRating').value),
+                photo: photoData,
+                invoice: invoiceData,
+                signature: signatureData
+            };
+            
+            if (!delivery.address || !delivery.receiver) {
+                mostrarToast('Preencha endereço e nome do recebedor!');
+                return;
+            }
+            
+            if (!delivery.datetime) {
+                delivery.datetime = new Date().toISOString().slice(0,16);
+            }
+            
+            deliveries.push(delivery);
+            updateStats();
+            mostrarToast('✅ Entrega finalizada com sucesso!');
+            
+            // Limpar formulário
+            document.getElementById('deliveryNumber').value = delivery.number;
+            document.getElementById('deliveryAddress').value = '';
+            document.getElementById('receiverName').value = '';
+            document.getElementById('receiverDoc').value = '';
+            document.getElementById('deliveryKm').value = '';
+            document.getElementById('deliveryTime').value = '';
+            document.getElementById('observations').value = '';
+            photoData = null;
+            invoiceData = null;
+            clearSignature();
+            document.getElementById('photoPreview').style.display = 'none';
+            document.getElementById('invoicePreview').style.display = 'none';
+            
+            // Mudar para tab de histórico
+            document.querySelector('.tab[data-tab="history"]').click();
+        }
+        
+        // Exportar relatório
+        function exportReport() {
+            let csv = "Número,Endereço,Recebedor,Documento,Data/Hora,KM,Tempo(min),Condição,Avaliação,Observações\n";
+            deliveries.forEach(d => {
+                csv += `"${d.number}","${d.address}","${d.receiver}","${d.receiverDoc}","${d.datetime}",${d.km},${d.time},"${d.condition}",${d.rating},"${d.obs || ''}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `overons_relatorio_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+            mostrarToast('📊 Relatório exportado!');
+        }
+        
+        // Toast
+        function mostrarToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        // Inicialização
+        function init() {
+            workerIdEl.textContent = driverId;
+            document.getElementById('deliveryNumber').value = 'ENT-' + new Date().getTime();
+            document.getElementById('deliveryDateTime').value = new Date().toISOString().slice(0,16);
+            initSignature();
+            setupEvidenceArea('photoArea', 'photoPreview', (data) => { photoData = data; });
+            setupEvidenceArea('invoiceArea', 'invoicePreview', (data) => { invoiceData = data; });
+            
+            // Eventos
+            document.getElementById('startWorkBtn').addEventListener('click', startWork);
+            document.getElementById('startBreakBtn').addEventListener('click', startBreak);
+            document.getElementById('endWorkBtn').addEventListener('click', () => {
+                if (confirm('Encerrar expediente?')) {
+                    isWorking = false;
+                    statusBadge.className = 'status-badge off';
+                    statusBadge.innerHTML = '🔴 Offline';
+                    statusText.textContent = 'Fora de expediente';
+                    mostrarToast('Expediente encerrado. Até amanhã!');
+                }
+            });
+            document.getElementById('submitDelivery').addEventListener('click', submitDelivery);
+            document.getElementById('exportReport').addEventListener('click', exportReport);
+            document.getElementById('clearSignature').addEventListener('click', clearSignature);
+            
+            // Tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+                });
+            });
+            
+            // FAB
+            document.getElementById('fabDelivery').addEventListener('click', () => {
+                document.querySelector('.tab[data-tab="delivery"]').click();
+            });
+            
+            setInterval(updateBreakTime, 1000);
+        }
+        
+        init();
+    </script>
+</body>
+</html>

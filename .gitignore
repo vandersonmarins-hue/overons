@@ -1,0 +1,15 @@
+# Dependencias
+node_modules/
+
+# Chaves de API e arquivos sensiveis
+deep.py
+ds.bat
+.deepseek/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

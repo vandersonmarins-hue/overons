@@ -1,0 +1,20 @@
+{
+  "name": "overons-location",
+  "version": "2.0.0",
+  "description": "Overons - Sistema de Rastreamento de Entregadores em Tempo Real",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["rastreamento", "entregadores", "gps", "socket.io"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}
