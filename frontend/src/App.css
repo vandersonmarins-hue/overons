@@ -1,5 +1,1 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border, #2a2a4a); border-radius: 3px; }
+/* Global styles - handled by CompanyDashboard.css */

@@ -596,10 +596,11 @@ process.on('SIGTERM', () => { salvarDados(); process.exit(); });
 // ==================== SERVE REACT BUILD ====================
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendDist)) {
-  // Serve assets do React (prioridade maior, antes do static raiz)
+  // Serve assets do React
   app.use('/assets', express.static(path.join(frontendDist, 'assets')));
+  app.get('/favicon.svg', (req, res) => res.sendFile(path.join(frontendDist, 'favicon.svg')));
   
-  // Redireciona /dashboard para o React via /react
+  // Dashboard React
   app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(frontendDist, 'index.html'));
   });

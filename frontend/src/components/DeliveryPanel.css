@@ -1,0 +1,18 @@
+.delivery-panel { padding: 0; }
+.delivery-list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.delivery-card {
+  background: var(--card-bg, #14142e); border-radius: 10px; padding: 12px;
+  border: 1px solid var(--border, #2a2a4a); border-left: 3px solid var(--accent, #00b894);
+}
+.delivery-card.concluida { border-left-color: #00b894; }
+.delivery-card.atribuida { border-left-color: #fdcb6e; }
+.del-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.del-motorista { font-weight: bold; font-size: 13px; color: var(--text, #dfe6e9); }
+.del-status { font-size: 11px; padding: 2px 8px; border-radius: 8px; font-weight: bold; }
+.del-status.concluida { background: #00b89422; color: #00b894; }
+.del-status.atribuida { background: #fdcb6e22; color: #fdcb6e; }
+.del-card-body { display: flex; flex-direction: column; gap: 3px; }
+.del-info { font-size: 12px; color: var(--text-muted, #888); display: flex; align-items: center; gap: 6px; }
+.del-info.valor { color: #fdcb6e; font-weight: bold; }
+.del-info.time { font-size: 11px; color: #636e72; }
+.delivery-empty { color: var(--text-muted, #888); text-align: center; padding: 30px; font-size: 14px; }
