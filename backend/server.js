@@ -1005,15 +1005,15 @@ app.get('/api/entregas', (req, res) => {
   res.json(entregasDB.slice().reverse());
 });
 
-// Cadastrar nova entrega
+// Cadastrar nova entrega e disparar para motoristas
 app.post('/api/entregas', (req, res) => {
-  const { cliente, endereco, observacoes, produtos } = req.body;
+  const { cliente, endereco, observacoes, produtos, driverId } = req.body;
   if (!cliente || !endereco) return res.status(400).json({ erro: 'Cliente e endereco obrigatorios' });
 
   const pedidoId = 'PED-' + Date.now().toString(36).toUpperCase();
   const chaveAcesso = 'MAR-' + Date.now().toString(36).toUpperCase().slice(0, 8);
 
-  const nova = {
+  const entrega = {
     id: Date.now().toString(),
     pedidoId,
     chaveAcesso,
@@ -1021,12 +1021,37 @@ app.post('/api/entregas', (req, res) => {
     endereco,
     produtos: produtos || [],
     observacoes: observacoes || '',
-    status: 'AGUARDANDO_CONFIRMACAO',
+    status: 'pendente',
     criadaEm: new Date().toISOString(),
+    entregadorId: driverId || '',
   };
 
-  entregasDB.push(nova);
-  res.json({ success: true, pedidoId, chaveAcesso });
+  entregasDB.push(entrega);
+
+  // Disparar para motoristas via Socket.IO
+  let enviadas = 0;
+  if (driverId) {
+    // Para motorista especifico
+    const d = drivers.get(driverId);
+    if (d && d.socketId) {
+      io.to(d.socketId).emit('new-available-delivery', entrega);
+      enviadas = 1;
+    }
+  } else {
+    // Broadcast para todos motoristas online
+    for (const [id, d] of drivers) {
+      if (d.status === 'online' && d.socketId) {
+        io.to(d.socketId).emit('new-available-delivery', entrega);
+        enviadas++;
+      }
+    }
+  }
+
+  console.log(`📦 Entrega ${pedidoId} criada e enviada para ${enviadas} motorista(s)`);
+  io.emit('new-delivery-log', entrega);
+  io.emit('drivers-update', getDriversList());
+
+  res.json({ success: true, pedidoId, chaveAcesso, enviadas });
 });
 
 // ==================== API: MENSAGENS VIA REST (FALLBACK) ====================

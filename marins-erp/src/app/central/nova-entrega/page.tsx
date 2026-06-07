@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, Plus, Trash2, Copy, CheckCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -10,6 +10,15 @@ export default function NovaEntregaPage() {
   const [observacoes, setObservacoes] = useState('');
   const [produtos, setProdutos] = useState([{ nome: '', quantidade: 1, preco: 0 }]);
   const [saving, setSaving] = useState(false);
+  const [driverId, setDriverId] = useState("");
+  const [drivers, setDrivers] = useState([]);
+
+  useEffect(() => {
+    fetch("http://localhost:3000/api/entregadores")
+      .then(r => r.json())
+      .then(d => setDrivers(d || []))
+      .catch(() => {});
+  }, []);
   const [resultado, setResultado] = useState<{ pedidoId: string; chaveAcesso: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
 
@@ -38,6 +47,7 @@ export default function NovaEntregaPage() {
           endereco: endereco.trim(),
           observacoes: observacoes.trim(),
           produtos: produtos.filter(p => p.nome.trim()),
+          driverId: driverId || undefined,
         }),
       });
       const data = await res.json();
@@ -119,6 +129,16 @@ export default function NovaEntregaPage() {
           <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
             placeholder="Observacoes (opcional)" rows={2}
             className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
+          <div className="mb-3">
+            <label className="text-gray-400 text-xs mb-1 block">Direcionar para</label>
+            <select value={driverId} onChange={e => setDriverId(e.target.value)}
+              className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50">
+              <option value="">📢 Todos os motoristas disponiveis</option>
+              {drivers.map(d => (
+                <option key={d.id} value={d.id}>🚚 {d.nome || d.id}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Produtos */}
