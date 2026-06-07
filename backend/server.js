@@ -660,15 +660,6 @@ io.on('connection', (socket) => {
     io.emit('new-delivery-log', entrega); salvarDados();
   });
 
-  socket.on('assign-delivery', (data) => {
-    if (!data || !data.driverId || !data.endereco) return;
-    const novaEntrega = { id: Date.now().toString(), driverId: data.driverId, endereco: data.endereco, cliente: data.cliente || 'Nao informado', valor: data.valor || 0, status: 'atribuida', criadaEm: new Date().toISOString(), concluidaEm: null };
-    deliveries.push(novaEntrega);
-    const d = drivers.get(data.driverId);
-    if (d) io.to(d.socketId).emit('new-delivery', { id: novaEntrega.id, endereco: data.endereco, cliente: data.cliente, valor: data.valor });
-    io.emit('new-delivery-log', novaEntrega); io.emit('drivers-update', getDriversList()); salvarDados();
-  });
-
   // Empresa atribui entrega a um motorista (ou broadcast)
   socket.on('assign-delivery', (data) => {
     if (!data || !data.endereco) return;
