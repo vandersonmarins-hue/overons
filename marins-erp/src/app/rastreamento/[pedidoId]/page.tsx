@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, ChevronDown, ChevronUp, Bell } from 'lucide-react';
+import { Clock, ChevronDown, ChevronUp, Bell, AlertTriangle } from 'lucide-react';
 import type { RastreamentoPedido } from '@/types/rastreamento';
 import { STATUS_LABELS } from '@/types/rastreamento';
 import { useRastreamentoWebSocket } from '@/hooks/useRastreamentoWebSocket';
@@ -11,22 +11,48 @@ import InformacoesPedido from '@/components/rastreamento/InformacoesPedido';
 import ContatoEntregador from '@/components/rastreamento/ContatoEntregador';
 import ConfirmacaoRecebimento from '@/components/rastreamento/ConfirmacaoRecebimento';
 
-export default function RastreamentoPage(props: { params: Promise<{ pedidoId: string }> }) {
+export default function RastreamentoPage(props: { params: Promise<{ pedidoId: string }>; searchParams: Promise<{ chave?: string }> }) {
   const [pedido, setPedido] = useState<RastreamentoPedido | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandInfo, setExpandInfo] = useState(false);
   const [pedidoId, setPedidoId] = useState('');
+  const [acessoNegado, setAcessoNegado] = useState(false);
 
   useEffect(() => {
     (async () => {
       const p = await props.params;
+      const sp = await props.searchParams;
       setPedidoId(p.pedidoId);
+
+      // Valida chave de acesso
+      const chave = sp.chave || sessionStorage.getItem('chave_acesso');
+      if (!chave) { setAcessoNegado(true); setLoading(false); return; }
+      const valRes = await fetch('/api/acesso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chave }) });
+      const valData = await valRes.json();
+      if (!valData.valida) { setAcessoNegado(true); setLoading(false); return; }
+
       try { const res = await fetch(`/api/rastreamento/${p.pedidoId}`); if (res.ok) setPedido(await res.json()); } catch {}
       setLoading(false);
     })();
   }, []);
 
   const { posicao } = useRastreamentoWebSocket({ pedidoId });
+
+  if (acessoNegado) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
+        <div className="w-16 h-16 rounded-2xl bg-red-600/20 flex items-center justify-center mb-4">
+          <AlertTriangle size={32} className="text-red-400" />
+        </div>
+        <h1 className="text-white font-bold text-xl mb-2">Acesso Negado</h1>
+        <p className="text-gray-400 text-sm text-center mb-6">Chave de acesso invalida ou expirada.</p>
+        <a href="/acesso-cliente"
+          className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">
+          Tentar novamente
+        </a>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
