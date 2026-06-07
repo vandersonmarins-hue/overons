@@ -99,23 +99,20 @@ io.on('connection', (socket) => {
     }
 
     // Atualizar dados do motorista
-    if (drivers.has(data.driverId)) {
-      const d = drivers.get(data.driverId);
-      d.lastLat = data.latitude;
-      d.lastLng = data.longitude;
-      d.lastSeen = new Date().toISOString();
-    } else {
-      drivers.set(data.driverId, {
-        id: data.driverId,
-        status: 'online',
-        lastLat: data.latitude,
-        lastLng: data.longitude,
-        lastSeen: new Date().toISOString(),
-        deliveriesCount: 0,
-        socketId: socket.id,
-      });
-      io.emit('drivers-update', getDriversList());
-    }
+    const isNew = !drivers.has(data.driverId);
+    
+    drivers.set(data.driverId, {
+      id: data.driverId,
+      status: 'online',
+      lastLat: data.latitude,
+      lastLng: data.longitude,
+      lastSeen: new Date().toISOString(),
+      deliveriesCount: isNew ? 0 : (drivers.get(data.driverId).deliveriesCount || 0),
+      socketId: socket.id,
+    });
+    
+    // Sempre notificar o dashboard sobre a atualizacao
+    io.emit('drivers-update', getDriversList());
 
     const locationData = {
       driverId: data.driverId,

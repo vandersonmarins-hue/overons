@@ -381,7 +381,22 @@
                 m.marker.setLatLng([latitude, longitude]);
                 if (m.circle) m.circle.setLatLng([latitude, longitude]);
             } else {
-                // Marker ainda nao existe - aguardar drivers-update
+                // Criar marker imediatamente se ainda nao existe
+                const color = '#00b894';
+                const marker = L.marker([latitude, longitude], {
+                    icon: createDriverIcon(color)
+                }).addTo(map);
+                marker.bindPopup(`<div style="font-family:Arial;min-width:180px;"><h4 style="margin:0 0 5px;color:#16213e;">🚚 ${driverId}</h4><p style="margin:2px 0;font-size:13px;"><b>Status:</b> 🟢 Online<br><b>📍</b> ${latitude.toFixed(6)}, ${longitude.toFixed(6)}</p></div>`);
+                
+                const circle = L.circle([latitude, longitude], {
+                    color: color, fillColor: color, fillOpacity: 0.1, radius: 50,
+                }).addTo(map);
+                
+                markers.set(driverId, { marker, circle, info: { id: driverId, status: 'online', latitude, longitude } });
+                
+                if (markers.size === 1) {
+                    map.setView([latitude, longitude], 14);
+                }
             }
         });
         
