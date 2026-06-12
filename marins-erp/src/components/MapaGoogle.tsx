@@ -12,10 +12,11 @@ interface Props {
   destinos?: { id: string; lat: number; lng: number; nome: string; endereco?: string; horario?: string }[];
   motoristaLat?: number;
   motoristaLng?: number;
+  motoristas?: { id: string; lat: number; lng: number; nome: string }[];
   zoom?: number;
 }
 
-export default function MapaGoogle({ origemLat, origemLng, origemNome, destinos = [], motoristaLat, motoristaLng, zoom = 13 }: Props) {
+export default function MapaGoogle({ origemLat, origemLng, origemNome, destinos = [], motoristaLat, motoristaLng, motoristas = [], zoom = 13 }: Props) {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: API_KEY,
@@ -56,6 +57,15 @@ export default function MapaGoogle({ origemLat, origemLng, origemNome, destinos 
           icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', scaledSize: { width: 40, height: 40 } as any }}
           title="Sua posição" />
       )}
+
+      {motoristas.map((motorista) => (
+        <MarkerF
+          key={motorista.id}
+          position={{ lat: motorista.lat, lng: motorista.lng }}
+          icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', scaledSize: { width: 36, height: 36 } as any }}
+          title={motorista.nome}
+        />
+      ))}
 
       {/* Rota */}
       {origemLat && origemLng && destinos.filter(d => d.lat).length > 0 && (

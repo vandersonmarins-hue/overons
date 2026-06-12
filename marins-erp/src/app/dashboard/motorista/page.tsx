@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Package, MapPin, Bell, MessageSquare, FileText, CheckCircle, Fuel, CreditCard, ListChecks, TrendingUp, User, Navigation, Wifi, WifiOff, X, AlertTriangle, Phone, Camera, HelpCircle, Clock, Route } from 'lucide-react';
+import { Package, MapPin, Bell, MessageSquare, FileText, CheckCircle, Fuel, CreditCard, ListChecks, TrendingUp, User, Navigation, Wifi, WifiOff, X, AlertTriangle, Phone, Camera, HelpCircle, Clock, Route, Shield, LogIn, LogOut } from 'lucide-react';
 import MapaGoogle from '@/components/MapaGoogle';
 
 // Origem fixa (centro de distribuicao)
@@ -9,6 +9,9 @@ const ORIGEM = { lat: -23.5505, lng: -46.6333, nome: 'Centro de Distribuicao' };
 import { useDriverStore } from './hooks/useDriverStore';
 import ChecklistForm from './components/ChecklistForm';
 import ExpenseForm from './components/ExpenseForm';
+import { getEntregas, mapEntregaToDriverDelivery } from '@/lib/entregas';
+import { useOveronsSocket } from '@/hooks/useOveronsSocket';
+import { clearDriverSession, getDriverSession, saveDriverSession } from '@/lib/auth';
 
 const MENU_ITEMS = [
   { id: 'map', icon: MapPin, label: 'Mapa da Rota' },
@@ -23,19 +26,258 @@ const MENU_ITEMS = [
 export default function DriverPage() {
   const [section, setSection] = useState('map');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [availableDrivers, setAvailableDrivers] = useState<Array<{ id: string; nome: string }>>([]);
+  const [loginIdentificador, setLoginIdentificador] = useState('');
+  const [loginSenha, setLoginSenha] = useState('');
+  const [loginErro, setLoginErro] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
   const summary = useDriverStore((s) => s.summary);
   const deliveries = useDriverStore((s) => s.deliveries);
+  const setDeliveries = useDriverStore((s) => s.setDeliveries);
   const updateDeliveryStatus = useDriverStore((s) => s.updateDeliveryStatus);
+  const setDriverLocation = useDriverStore((s) => s.setCurrentLocation);
+  const profile = useDriverStore((s) => s.profile);
+  const setProfile = useDriverStore((s) => s.setProfile);
+  const addMessage = useDriverStore((s) => s.addMessage);
+  const messages = useDriverStore((s) => s.messages);
+  const markMessagesAsRead = useDriverStore((s) => s.markMessagesAsRead);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const { socket, connected } = useOveronsSocket(profile?.id, profile?.nome);
   const current = deliveries.find(d => d.status === 'in_progress') || deliveries.find(d => d.status === 'pending');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const session = getDriverSession();
+    if (session?.user) setProfile(session.user);
+  }, [setProfile]);
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
-    if (typeof window !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.watchPosition((pos) => setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }), () => {}, { enableHighAccuracy: true });
-    }
+    const loadDeliveries = async () => {
+      const entregas = await getEntregas();
+      const ativas = entregas
+        .filter((entrega) => {
+          if (!['pendente', 'aceita', 'em_andamento', 'PROXIMO_CLIENTE', 'concluida'].includes(entrega.status)) return false;
+          if (!profile?.id) return true;
+          return !entrega.entregadorId || entrega.entregadorId === profile.id;
+        })
+        .map(mapEntregaToDriverDelivery);
+      setDeliveries(ativas);
+    };
+
+    loadDeliveries();
+    const interval = setInterval(loadDeliveries, 10000);
+    return () => clearInterval(interval);
+  }, [profile?.id, setDeliveries]);
+
+  useEffect(() => {
+    const loadDrivers = async () => {
+      try {
+        const res = await fetch('http://localhost:3000/api/entregadores');
+        if (!res.ok) return;
+        const data = await res.json();
+        setAvailableDrivers((data || []).map((item: any) => ({ id: item.id, nome: item.nome || item.id })));
+      } catch {}
+    };
+
+    loadDrivers();
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.watchPosition((pos) => {
+        const location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCurrentLocation(location);
+        setDriverLocation(location);
+      }, () => {}, { enableHighAccuracy: true });
+    }
+  }, [setDriverLocation]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMessage = (data: any) => {
+      const isChatOpen = section === 'chat';
+      addMessage({
+        id: data.id || Date.now().toString(),
+        sender: 'central',
+        text: data.message || '',
+        timestamp: data.sentAt || data.timestamp || new Date().toISOString(),
+        read: isChatOpen,
+      });
+      if (isChatOpen && data.id) {
+        socket.emit('message-read', { messageId: data.id });
+      }
+    };
+
+    socket.on('new-message', handleMessage);
+    return () => {
+      socket.off('new-message', handleMessage);
+    };
+  }, [socket, addMessage, section]);
+
+  useEffect(() => {
+    if (section !== 'chat' || !socket) return;
+    const unreadIds = messages.filter((message) => message.sender === 'central' && !message.read).map((message) => message.id);
+    if (unreadIds.length === 0) return;
+    unreadIds.forEach((messageId) => socket.emit('message-read', { messageId }));
+    markMessagesAsRead(unreadIds);
+  }, [section, messages, socket, markMessagesAsRead]);
+
+  useEffect(() => {
+    if (!current || !currentLocation || !profile?.id) return;
+
+    const syncLocation = async () => {
+      try {
+        await fetch(`http://localhost:3000/api/entregas/${current.id}/localizacao`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latitude: currentLocation.lat,
+            longitude: currentLocation.lng,
+            entregadorId: profile.id,
+            entregadorNome: profile.nome,
+          }),
+        });
+        socket?.emit('driver-location', {
+          driverId: profile.id,
+          nome: profile.nome,
+          latitude: currentLocation.lat,
+          longitude: currentLocation.lng,
+          timestamp: new Date().toISOString(),
+        });
+      } catch {}
+    };
+
+    syncLocation();
+  }, [current, currentLocation, profile, socket]);
+
+  const handleStatusUpdate = async (deliveryId: string, status: 'delivered' | 'absent' | 'refused' | 'problem') => {
+    updateDeliveryStatus(deliveryId, status);
+    const backendStatus = status === 'delivered'
+      ? 'concluida'
+      : status === 'absent'
+        ? 'ausente'
+        : status === 'refused'
+          ? 'recusada'
+          : 'problema';
+
+    try {
+      await fetch(`http://localhost:3000/api/entregas/${deliveryId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: backendStatus,
+          entregadorId: profile?.id,
+          entregadorNome: profile?.nome,
+          latitude: currentLocation?.lat,
+          longitude: currentLocation?.lng,
+        }),
+      });
+    } catch {}
+  };
+
+  const handleWorkflowUpdate = async (deliveryId: string, workflow: 'accept' | 'start') => {
+    const backendStatus = workflow === 'accept' ? 'aceita' : 'em_andamento';
+    const localStatus = workflow === 'accept' ? 'pending' : 'in_progress';
+    updateDeliveryStatus(deliveryId, localStatus);
+
+    try {
+      await fetch(`http://localhost:3000/api/entregas/${deliveryId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: backendStatus,
+          entregadorId: profile?.id,
+          entregadorNome: profile?.nome,
+          latitude: currentLocation?.lat,
+          longitude: currentLocation?.lng,
+        }),
+      });
+    } catch {}
+  };
+
+  const handleProfileChange = (driverId: string) => {
+    const selected = availableDrivers.find((driver) => driver.id === driverId);
+    if (!selected) return;
+    setProfile(selected);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('marins_driver_profile', JSON.stringify(selected));
+    }
+  };
+
+  const entrar = async () => {
+    if (!loginIdentificador.trim() || !loginSenha.trim()) {
+      setLoginErro('Informe identificador e senha');
+      return;
+    }
+    setLoginLoading(true);
+    setLoginErro('');
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/driver/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identificador: loginIdentificador, senha: loginSenha }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setLoginErro(data.error || 'Credenciais invalidas');
+        setLoginLoading(false);
+        return;
+      }
+      saveDriverSession(data);
+      setProfile(data.user);
+      setLoginIdentificador('');
+      setLoginSenha('');
+    } catch {
+      setLoginErro('Falha ao autenticar motorista');
+    }
+    setLoginLoading(false);
+  };
+
+  const sair = () => {
+    clearDriverSession();
+    setProfile(null);
+    setDeliveries([]);
+  };
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
+        <div className="w-full max-w-sm bg-gray-950/90 rounded-3xl p-6 border border-white/10 shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600/20 flex items-center justify-center mx-auto mb-4">
+            <Shield size={32} className="text-blue-400" />
+          </div>
+          <h1 className="text-white text-center font-bold text-xl mb-1">Login do Motorista</h1>
+          <p className="text-gray-400 text-sm text-center mb-6">Entre com CPF, telefone ou identificador e sua senha</p>
+          <input
+            value={loginIdentificador}
+            onChange={(e) => { setLoginIdentificador(e.target.value); setLoginErro(''); }}
+            placeholder="CPF, telefone ou ID"
+            className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-blue-500/50"
+          />
+          <input
+            type="password"
+            value={loginSenha}
+            onChange={(e) => { setLoginSenha(e.target.value); setLoginErro(''); }}
+            onKeyDown={(e) => e.key === 'Enter' && entrar()}
+            placeholder="Senha"
+            className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 mb-4 focus:outline-none focus:border-blue-500/50"
+          />
+          {loginErro && <p className="text-red-400 text-sm mb-4">{loginErro}</p>}
+          <button
+            onClick={entrar}
+            disabled={loginLoading}
+            className="w-full bg-blue-600 text-white py-3 rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <LogIn size={16} /> {loginLoading ? 'Entrando...' : 'Acessar'}
+          </button>
+          <p className="text-gray-500 text-xs mt-4 text-center">Demo motorista: `MOT_001` / `motorista@123`</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-black relative">
@@ -93,10 +335,28 @@ export default function DriverPage() {
           ))}
         </nav>
         <div className="absolute bottom-4 left-4 right-4">
+          <div className="mb-3 bg-white/5 rounded-xl border border-white/5 p-3">
+            <div className="text-gray-400 text-xs mb-2">Motorista ativo</div>
+            <select
+              value={profile?.id || ''}
+              onChange={(e) => handleProfileChange(e.target.value)}
+              className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none"
+            >
+              <option value="">Selecionar motorista</option>
+              {availableDrivers.map((driver) => (
+                <option key={driver.id} value={driver.id}>{driver.nome}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center gap-2 px-4 py-3 bg-white/5 rounded-xl border border-white/5">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center"><User size={14} className="text-white" /></div>
-            <span className="text-sm text-gray-200 font-medium flex-1">João Motorista</span>
-            <div className="flex items-center gap-1.5 text-xs bg-green-500/20 text-green-400 px-2.5 py-1 rounded-full border border-green-500/20"><Wifi size={10} /> Online</div>
+            <span className="text-sm text-gray-200 font-medium flex-1">{profile?.nome || 'Sem motorista'}</span>
+            <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${connected ? 'bg-green-500/20 text-green-400 border-green-500/20' : 'bg-red-500/20 text-red-400 border-red-500/20'}`}>
+              {connected ? <Wifi size={10} /> : <WifiOff size={10} />} {connected ? 'Online' : 'Offline'}
+            </div>
+            <button onClick={sair} className="ml-2 text-gray-400 hover:text-white">
+              <LogOut size={14} />
+            </button>
           </div>
         </div>
       </div>
@@ -150,11 +410,19 @@ export default function DriverPage() {
                   </div>
                 )}
               </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <button onClick={() => handleWorkflowUpdate(current.id, 'accept')} className="bg-blue-600 text-white py-3 rounded-xl text-sm font-bold hover:bg-blue-700 active:scale-95 transition-all">
+                  Aceitar Entrega
+                </button>
+                <button onClick={() => handleWorkflowUpdate(current.id, 'start')} className="bg-indigo-600 text-white py-3 rounded-xl text-sm font-bold hover:bg-indigo-700 active:scale-95 transition-all">
+                  Sair para Entrega
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => updateDeliveryStatus(current.id, 'delivered')} className="bg-green-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-lg shadow-green-900/30"><CheckCircle size={18} /> Entregue</button>
-                <button onClick={() => updateDeliveryStatus(current.id, 'absent')} className="bg-yellow-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-yellow-700 active:scale-95 transition-all"><X size={18} /> Ausente</button>
-                <button onClick={() => updateDeliveryStatus(current.id, 'refused')} className="bg-red-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-700 active:scale-95 transition-all"><HelpCircle size={18} /> Recusado</button>
-                <button onClick={() => updateDeliveryStatus(current.id, 'problem')} className="bg-orange-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-orange-700 active:scale-95 transition-all"><AlertTriangle size={18} /> Problema</button>
+                <button onClick={() => handleStatusUpdate(current.id, 'delivered')} className="bg-green-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-lg shadow-green-900/30"><CheckCircle size={18} /> Entregue</button>
+                <button onClick={() => handleStatusUpdate(current.id, 'absent')} className="bg-yellow-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-yellow-700 active:scale-95 transition-all"><X size={18} /> Ausente</button>
+                <button onClick={() => handleStatusUpdate(current.id, 'refused')} className="bg-red-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-700 active:scale-95 transition-all"><HelpCircle size={18} /> Recusado</button>
+                <button onClick={() => handleStatusUpdate(current.id, 'problem')} className="bg-orange-600 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-orange-700 active:scale-95 transition-all"><AlertTriangle size={18} /> Problema</button>
               </div>
             </div>
           )}
@@ -214,12 +482,26 @@ export default function DriverPage() {
 function ChatSection() {
   const messages = useDriverStore((s) => s.messages);
   const addMessage = useDriverStore((s) => s.addMessage);
+  const profile = useDriverStore((s) => s.profile);
   const [text, setText] = useState('');
 
-  const send = () => {
+  const send = async () => {
     if (!text.trim()) return;
-    addMessage({ id: Date.now().toString(), sender: 'driver', text, timestamp: new Date().toISOString(), read: false });
+    const sentText = text;
+    addMessage({ id: Date.now().toString(), sender: 'driver', text: sentText, timestamp: new Date().toISOString(), read: false });
     setText('');
+    if (!profile?.id) return;
+    try {
+      await fetch('http://localhost:3000/api/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: profile.id,
+          message: `[Motorista] ${sentText}`,
+          empresa: profile.nome,
+        }),
+      });
+    } catch {}
   };
 
   return (

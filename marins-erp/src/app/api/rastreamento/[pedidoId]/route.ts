@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { MOCK_PEDIDO } from '@/types/rastreamento';
+import { getEntregaByPedidoId, mapEntregaToTracking } from '@/lib/entregas';
 
 export async function GET(req: Request, props: { params: Promise<{ pedidoId: string }> }) {
   const { pedidoId } = await props.params;
-  await new Promise(r => setTimeout(r, 200));
-  return NextResponse.json({ ...MOCK_PEDIDO, pedidoId });
+  const entrega = await getEntregaByPedidoId(pedidoId);
+  if (!entrega) {
+    return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 });
+  }
+  return NextResponse.json(mapEntregaToTracking(entrega));
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, ChevronDown, ChevronUp, Bell, AlertTriangle } from 'lucide-react';
+import { Clock, ChevronDown, ChevronUp, Bell, AlertTriangle, Send } from 'lucide-react';
 import type { RastreamentoPedido } from '@/types/rastreamento';
 import { STATUS_LABELS } from '@/types/rastreamento';
 import { useRastreamentoWebSocket } from '@/hooks/useRastreamentoWebSocket';
@@ -11,12 +11,25 @@ import InformacoesPedido from '@/components/rastreamento/InformacoesPedido';
 import ContatoEntregador from '@/components/rastreamento/ContatoEntregador';
 import ConfirmacaoRecebimento from '@/components/rastreamento/ConfirmacaoRecebimento';
 
+interface DeliveryMessage {
+  id: string;
+  pedidoId: string;
+  sender: 'central' | 'client' | 'driver';
+  autor: string;
+  recipient?: string | null;
+  message: string;
+  sentAt: string;
+}
+
 export default function RastreamentoPage(props: { params: Promise<{ pedidoId: string }>; searchParams: Promise<{ chave?: string }> }) {
   const [pedido, setPedido] = useState<RastreamentoPedido | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandInfo, setExpandInfo] = useState(false);
   const [pedidoId, setPedidoId] = useState('');
   const [acessoNegado, setAcessoNegado] = useState(false);
+  const [messages, setMessages] = useState<DeliveryMessage[]>([]);
+  const [messageText, setMessageText] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -37,6 +50,47 @@ export default function RastreamentoPage(props: { params: Promise<{ pedidoId: st
   }, []);
 
   const { posicao } = useRastreamentoWebSocket({ pedidoId });
+
+  useEffect(() => {
+    if (!pedidoId) return;
+
+    const loadMessages = async () => {
+      try {
+        const response = await fetch(`http://localhost:3000/api/entregas/${pedidoId}/messages`);
+        if (response.ok) {
+          setMessages(await response.json());
+        }
+      } catch {}
+    };
+
+    loadMessages();
+    const interval = setInterval(loadMessages, 5000);
+    return () => clearInterval(interval);
+  }, [pedidoId]);
+
+  const sendMessage = async () => {
+    if (!pedidoId || !messageText.trim()) return;
+    setSendingMessage(true);
+    try {
+      const clienteNome = typeof window !== 'undefined' ? sessionStorage.getItem('cliente_nome') || 'Cliente' : 'Cliente';
+      await fetch(`http://localhost:3000/api/entregas/${pedidoId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: 'client',
+          autor: clienteNome,
+          recipient: pedido?.motorista?.nome || 'Central',
+          message: messageText.trim(),
+        }),
+      });
+      setMessageText('');
+      const response = await fetch(`http://localhost:3000/api/entregas/${pedidoId}/messages`);
+      if (response.ok) {
+        setMessages(await response.json());
+      }
+    } catch {}
+    setSendingMessage(false);
+  };
 
   if (acessoNegado) {
     return (
@@ -133,6 +187,49 @@ export default function RastreamentoPage(props: { params: Promise<{ pedidoId: st
         <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl p-5 border border-white/10">
           <h3 className="text-white font-bold text-sm mb-4">📌 Histórico</h3>
           <StatusTimeline historico={pedido.historico} statusAtual={pedido.status} />
+        </div>
+
+        <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl p-5 border border-white/10">
+          <h3 className="text-white font-bold text-sm mb-4">💬 Conversa da Entrega</h3>
+          <div className="space-y-3 max-h-64 overflow-y-auto mb-4">
+            {messages.length === 0 ? (
+              <div className="text-gray-500 text-sm">Nenhuma mensagem nesta entrega.</div>
+            ) : (
+              messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`rounded-2xl px-4 py-3 text-sm ${
+                    message.sender === 'client'
+                      ? 'bg-blue-600 text-white ml-8'
+                      : 'bg-gray-800 text-gray-200 mr-8 border border-white/10'
+                  }`}
+                >
+                  <div className="text-xs opacity-70 mb-1">{message.autor}</div>
+                  <div>{message.message}</div>
+                  <div className="text-[11px] opacity-60 mt-1 text-right">
+                    {new Date(message.sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder="Enviar mensagem sobre sua entrega"
+              className="flex-1 bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={sendingMessage || !messageText.trim()}
+              className="bg-blue-600 text-white px-4 rounded-xl font-bold disabled:opacity-50 hover:bg-blue-700"
+            >
+              <Send size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">

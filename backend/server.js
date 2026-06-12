@@ -43,6 +43,83 @@ CREATE INDEX IF NOT EXISTS idx_deliveries_empresa ON deliveries(empresa_id);
 CREATE INDEX IF NOT EXISTS idx_entregadores_empresa ON entregadores(empresa_id);
 `;
 
+function hashSecret(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function ensureColumn(table, column, definition) {
+  const exists = db.prepare(`SELECT COUNT(*) as total FROM pragma_table_info('${table}') WHERE name = ?`).get(column);
+  if (!exists || exists.total === 0) {
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`); } catch {}
+  }
+}
+
+function seedAuthCredentials() {
+  ensureColumn('companies', 'login_secret', 'TEXT');
+  ensureColumn('entregadores', 'login_secret', 'TEXT');
+  ensureColumn('entregadores', 'login_identifier', 'TEXT');
+
+  const defaultCompanyPassword = 'empresa@123';
+  const defaultDriverPassword = 'motorista@123';
+
+  const companies = db.prepare('SELECT id, email, cnpj, nome, login_secret FROM companies').all();
+  for (const company of companies) {
+    if (!company.login_secret) {
+      const secret = company.id === 'EMP_001' ? 'overons2024' : defaultCompanyPassword;
+      db.prepare('UPDATE companies SET login_secret = ? WHERE id = ?').run(hashSecret(secret), company.id);
+    }
+  }
+
+  const drivers = db.prepare('SELECT id, telefone, nome, login_secret, login_identifier FROM entregadores').all();
+  for (const driver of drivers) {
+    if (!driver.login_secret) {
+      const identifier = (driver.telefone || driver.id).replace(/\D/g, '');
+      db.prepare('UPDATE entregadores SET login_identifier = ?, login_secret = ? WHERE id = ?').run(identifier, hashSecret(defaultDriverPassword), driver.id);
+    }
+  }
+
+  const seedDrivers = [
+    { id: 'MOT_001', empresa_id: 'EMP_001', nome: 'João Motorista', telefone: '(11) 99999-0001', login_identifier: '11999990001' },
+    { id: 'MOT_002', empresa_id: 'EMP_001', nome: 'Maria Entregadora', telefone: '(11) 99999-0002', login_identifier: '11999990002' },
+    { id: 'MOT_003', empresa_id: 'EMP_002', nome: 'Carlos Transporte', telefone: '(11) 99999-0003', login_identifier: '11999990003' },
+  ];
+  for (const driver of seedDrivers) {
+    db.prepare(`
+      INSERT OR IGNORE INTO entregadores (id, empresa_id, nome, telefone, status, login_identifier, login_secret)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      driver.id,
+      driver.empresa_id,
+      driver.nome,
+      driver.telefone,
+      'offline',
+      driver.login_identifier,
+      hashSecret(defaultDriverPassword)
+    );
+    db.prepare(`
+      UPDATE entregadores
+      SET empresa_id = COALESCE(empresa_id, ?),
+          nome = COALESCE(nome, ?),
+          telefone = COALESCE(telefone, ?),
+          status = COALESCE(status, 'offline'),
+          login_identifier = COALESCE(login_identifier, ?),
+          login_secret = COALESCE(login_secret, ?)
+      WHERE id = ?
+    `).run(
+      driver.empresa_id,
+      driver.nome,
+      driver.telefone,
+      driver.login_identifier,
+      hashSecret(defaultDriverPassword),
+      driver.id
+    );
+  }
+}
+
+function normalizeIdentifier(value) {
+  return String(value || '').trim().toLowerCase().replace(/\D/g, '');
+}
+
 // ==================== WEBSOCKET ====================
 const io = new Server(server, {
   cors: {
@@ -588,6 +665,57 @@ app.get('/api/entregadores', (req, res) => {
   }
 });
 
+app.post('/api/entregadores/cadastro', (req, res) => {
+  try {
+    const { nome, cpf, cnh, cnhCategoria, tipoVeiculo, tipoContrato, telefone, email, endereco, dataNascimento, observacoes, documentos, certidoes } = req.body || {};
+    if (!nome || !cpf) return res.status(400).json({ error: 'Nome e CPF sao obrigatorios' });
+
+    const id = 'MOT_' + Date.now().toString(36).toUpperCase();
+    const login_identifier = normalizeIdentifier(telefone || cpf);
+    const senhaInicial = `MOT-${String(cpf).replace(/\D/g, '').slice(-4) || Date.now().toString().slice(-4)}`;
+
+    db.prepare(`
+      INSERT INTO entregadores (
+        id, empresa_id, nome, telefone, veiculo_id, status, cadastro_em, foto_url, login_identifier, login_secret
+      ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?)
+    `).run(id, 'EMP_001', nome, telefone || null, null, 'offline', null, login_identifier, hashSecret(senhaInicial));
+
+    res.json({
+      success: true,
+      id,
+      senhaInicial,
+      message: 'Cadastro enviado e credenciais iniciais geradas.',
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/auth/driver/login', (req, res) => {
+  try {
+    const { identificador, senha } = req.body || {};
+    if (!identificador || !senha) return res.status(400).json({ error: 'identificador e senha obrigatorios' });
+
+    const ident = normalizeIdentifier(identificador);
+    const driver = db.prepare(`
+      SELECT * FROM entregadores
+      WHERE lower(id) = lower(?)
+         OR replace(replace(replace(replace(replace(coalesce(telefone, ''), '(', ''), ')', ''), '-', ''), ' ', ''), '+55', '') = ?
+         OR login_identifier = ?
+      LIMIT 1
+    `).get(identificador, ident, ident);
+
+    if (!driver || driver.login_secret !== hashSecret(senha)) {
+      return res.status(401).json({ error: 'Credenciais invalidas' });
+    }
+
+    db.prepare("UPDATE entregadores SET status = 'online' WHERE id = ?").run(driver.id);
+    res.json({
+      success: true,
+      token: `drv_${driver.id}_${Date.now()}`,
+      user: { id: driver.id, nome: driver.nome, telefone: driver.telefone, empresa_id: driver.empresa_id },
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/veiculos', (req, res) => {
   try {
     const data = db.prepare('SELECT * FROM veiculos ORDER BY placa').all();
@@ -892,12 +1020,38 @@ app.post('/api/admin/companies', (req, res) => {
     const hoje = new Date().toISOString().split('T')[0];
     const venc = new Date(); venc.setMonth(venc.getMonth() + 1);
     const vencStr = venc.toISOString().split('T')[0];
+    const senhaInicial = `EMP-${cnpj.replace(/\D/g, '').slice(-6) || Date.now().toString().slice(-6)}`;
 
     db.prepare('INSERT INTO companies (id, nome, cnpj, responsavel, email, telefone, plano, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, nome, cnpj, responsavel, email, telefone || null, plano || 'trial', 'ativo');
     db.prepare('INSERT INTO subscriptions (id, empresa_id, plano, valor, data_inicio, data_vencimento, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run('SUB_' + id, id, plano || 'trial', preco, hoje, vencStr, 'ativa');
     db.prepare('INSERT INTO payments (id, empresa_id, valor, data_pagamento, data_vencimento, metodo, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run('PAY_' + id + '_0', id, preco, preco > 0 ? hoje : null, vencStr, 'pix', preco > 0 ? 'pago' : 'pendente');
+    db.prepare('UPDATE companies SET login_secret = ? WHERE id = ?').run(hashSecret(senhaInicial), id);
 
-    res.json({ id, message: 'Empresa cadastrada com sucesso' });
+    res.json({ id, message: 'Empresa cadastrada com sucesso', senhaInicial });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/auth/company/login', (req, res) => {
+  try {
+    const { identificador, senha } = req.body || {};
+    if (!identificador || !senha) return res.status(400).json({ error: 'identificador e senha obrigatorios' });
+    const identifier = normalizeIdentifier(identificador);
+    const senhaHash = hashSecret(senha);
+    const empresa = db.prepare(`
+      SELECT * FROM companies
+      WHERE lower(id) = lower(?)
+         OR lower(replace(email, ' ', '')) = lower(replace(?, ' ', ''))
+         OR replace(replace(replace(replace(cnpj, '.', ''), '/', ''), '-', ''), ' ', '') = ?
+      LIMIT 1
+    `).get(identificador, identificador, identifier);
+    if (!empresa || empresa.login_secret !== senhaHash) {
+      return res.status(401).json({ error: 'Credenciais invalidas' });
+    }
+    res.json({
+      success: true,
+      token: `cmp_${empresa.id}_${Date.now()}`,
+      user: { id: empresa.id, nome: empresa.nome, email: empresa.email, cnpj: empresa.cnpj, plano: empresa.plano },
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -990,6 +1144,45 @@ app.get('/api/messages', (req, res) => {
 
 // ==================== API: ENTREGAS ====================
 const entregasDB = [];
+const entregaStreamClients = new Set();
+const deliveryMessages = [];
+
+function emitirEventoEntrega(evento, payload) {
+  const data = `event: ${evento}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of entregaStreamClients) {
+    try {
+      client.write(data);
+    } catch {}
+  }
+}
+
+function getEntregaStatusHistorico(status) {
+  const mapa = {
+    pendente: 'Entrega cadastrada e aguardando motorista',
+    aceita: 'Entrega aceita pelo motorista',
+    em_andamento: 'Motorista saiu para entrega',
+    PROXIMO_CLIENTE: 'Motorista proximo ao cliente',
+    concluida: 'Entrega concluida',
+    recusada: 'Entrega recusada',
+    problema: 'Problema reportado na entrega',
+    ausente: 'Cliente ausente',
+  };
+  return mapa[status] || `Status atualizado para ${status}`;
+}
+
+function registrarHistoricoEntrega(entrega, status, descricao) {
+  if (!entrega.historico) entrega.historico = [];
+  entrega.historico.push({
+    id: `HIST_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    status,
+    descricao: descricao || getEntregaStatusHistorico(status),
+    createdAt: new Date().toISOString(),
+  });
+}
+
+function localizarEntregaPorPedidoId(pedidoId) {
+  return entregasDB.find((entrega) => entrega.pedidoId === pedidoId);
+}
 
 // Listar entregas cadastradas
 app.get('/api/entregas', (req, res) => {
@@ -1002,9 +1195,42 @@ app.get('/api/entregas/pendentes', (req, res) => {
   res.json(pendentes.slice().reverse());
 });
 
+app.get('/api/entregas/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  res.write(`event: ready\ndata: ${JSON.stringify({ ok: true, timestamp: new Date().toISOString() })}\n\n`);
+  entregaStreamClients.add(res);
+
+  const keepAlive = setInterval(() => {
+    try {
+      res.write(`event: ping\ndata: ${Date.now()}\n\n`);
+    } catch {}
+  }, 15000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    entregaStreamClients.delete(res);
+  });
+});
+
+app.get('/api/entregas/chave/:chaveAcesso', (req, res) => {
+  const entrega = entregasDB.find((item) => item.chaveAcesso === req.params.chaveAcesso);
+  if (!entrega) return res.status(404).json({ error: 'Entrega nao encontrada' });
+  res.json(entrega);
+});
+
+app.get('/api/entregas/:pedidoId', (req, res) => {
+  const entrega = localizarEntregaPorPedidoId(req.params.pedidoId);
+  if (!entrega) return res.status(404).json({ error: 'Entrega nao encontrada' });
+  res.json(entrega);
+});
+
 // Cadastrar nova entrega e disparar para motoristas
 app.post('/api/entregas', (req, res) => {
-  const { cliente, endereco, origem, distanciaKm, tempoMin, observacoes, produtos, tipoVeiculo, precoViagem, driverId, ocultarCliente } = req.body;
+  const { cliente, endereco, origem, distanciaKm, tempoMin, observacoes, produtos, tipoVeiculo, precoViagem, driverId, ocultarCliente, destinoLat, destinoLng } = req.body;
   if (!cliente || !endereco) return res.status(400).json({ erro: 'Cliente e endereco obrigatorios' });
 
   const pedidoId = 'PED-' + Date.now().toString(36).toUpperCase();
@@ -1021,13 +1247,22 @@ app.post('/api/entregas', (req, res) => {
     origem: origem || '',
     distanciaKm: distanciaKm || 0,
     tempoMin: tempoMin || 0,
+    destinoLat: typeof destinoLat === 'number' ? destinoLat : null,
+    destinoLng: typeof destinoLng === 'number' ? destinoLng : null,
     ocultarCliente: ocultarCliente !== undefined ? ocultarCliente : true,
     tipoVeiculo: tipoVeiculo || '',
     precoViagem: precoViagem || 0,
     status: 'pendente',
     criadaEm: new Date().toISOString(),
     entregadorId: driverId || '',
+    entregadorNome: '',
+    ultimaLatitude: null,
+    ultimaLongitude: null,
+    ultimaAtualizacaoLocalizacao: null,
+    confirmadaEm: null,
+    feedbackCliente: '',
   };
+  registrarHistoricoEntrega(entrega, 'pendente');
 
   entregasDB.push(entrega);
 
@@ -1053,8 +1288,113 @@ app.post('/api/entregas', (req, res) => {
   console.log(`📦 Entrega ${pedidoId} criada e enviada para ${enviadas} motorista(s)`);
   io.emit('new-delivery-log', entrega);
   io.emit('drivers-update', getDriversList());
+  emitirEventoEntrega('delivery-created', entrega);
 
   res.json({ success: true, pedidoId, chaveAcesso, enviadas });
+});
+
+app.get('/api/entregas/:pedidoId/messages', (req, res) => {
+  const entrega = localizarEntregaPorPedidoId(req.params.pedidoId);
+  if (!entrega) return res.status(404).json({ error: 'Entrega nao encontrada' });
+  const messages = deliveryMessages
+    .filter((message) => message.pedidoId === req.params.pedidoId)
+    .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+  res.json(messages);
+});
+
+app.post('/api/entregas/:pedidoId/messages', (req, res) => {
+  const entrega = localizarEntregaPorPedidoId(req.params.pedidoId);
+  if (!entrega) return res.status(404).json({ error: 'Entrega nao encontrada' });
+
+  const { sender, message, autor, recipient } = req.body || {};
+  if (!sender || !message) return res.status(400).json({ error: 'sender e message obrigatorios' });
+
+  const entry = {
+    id: `DMSG_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    pedidoId: req.params.pedidoId,
+    sender,
+    autor: autor || sender,
+    recipient: recipient || null,
+    message,
+    sentAt: new Date().toISOString(),
+  };
+  deliveryMessages.push(entry);
+  emitirEventoEntrega('delivery-message', entry);
+  res.json({ success: true, message: entry });
+});
+
+app.post('/api/entregas/:pedidoId/status', (req, res) => {
+  const entrega = localizarEntregaPorPedidoId(req.params.pedidoId);
+  if (!entrega) return res.status(404).json({ error: 'Entrega nao encontrada' });
+
+  const {
+    status,
+    entregadorId,
+    entregadorNome,
+    latitude,
+    longitude,
+    feedbackCliente,
+    notaCliente,
+  } = req.body || {};
+
+  if (!status) return res.status(400).json({ error: 'status obrigatorio' });
+
+  entrega.status = status;
+  if (entregadorId !== undefined) entrega.entregadorId = entregadorId || entrega.entregadorId;
+  if (entregadorNome !== undefined) entrega.entregadorNome = entregadorNome || entrega.entregadorNome;
+  if (typeof latitude === 'number') entrega.ultimaLatitude = latitude;
+  if (typeof longitude === 'number') entrega.ultimaLongitude = longitude;
+  if (typeof latitude === 'number' || typeof longitude === 'number') {
+    entrega.ultimaAtualizacaoLocalizacao = new Date().toISOString();
+  }
+  if (feedbackCliente) entrega.feedbackCliente = feedbackCliente;
+  if (notaCliente !== undefined) entrega.notaCliente = notaCliente;
+
+  if (status === 'aceita') entrega.aceitaEm = new Date().toISOString();
+  if (status === 'em_andamento') entrega.saiuParaEntregaEm = new Date().toISOString();
+  if (status === 'PROXIMO_CLIENTE') entrega.proximoClienteEm = new Date().toISOString();
+  if (status === 'concluida') entrega.confirmadaEm = new Date().toISOString();
+
+  registrarHistoricoEntrega(entrega, status);
+  io.emit('delivery-status-update', entrega);
+  emitirEventoEntrega('delivery-status-update', entrega);
+  res.json({ success: true, entrega });
+});
+
+app.post('/api/entregas/:pedidoId/localizacao', (req, res) => {
+  const entrega = localizarEntregaPorPedidoId(req.params.pedidoId);
+  if (!entrega) return res.status(404).json({ error: 'Entrega nao encontrada' });
+
+  const { latitude, longitude, entregadorId, entregadorNome } = req.body || {};
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+    return res.status(400).json({ error: 'latitude e longitude obrigatorias' });
+  }
+
+  entrega.ultimaLatitude = latitude;
+  entrega.ultimaLongitude = longitude;
+  entrega.ultimaAtualizacaoLocalizacao = new Date().toISOString();
+  if (entregadorId) entrega.entregadorId = entregadorId;
+  if (entregadorNome) entrega.entregadorNome = entregadorNome;
+
+  io.emit('delivery-location-update', {
+    pedidoId: entrega.pedidoId,
+    latitude,
+    longitude,
+    updatedAt: entrega.ultimaAtualizacaoLocalizacao,
+  });
+  emitirEventoEntrega('delivery-location-update', {
+    pedidoId: entrega.pedidoId,
+    latitude,
+    longitude,
+    updatedAt: entrega.ultimaAtualizacaoLocalizacao,
+    entrega,
+  });
+
+  res.json({
+    success: true,
+    pedidoId: entrega.pedidoId,
+    updatedAt: entrega.ultimaAtualizacaoLocalizacao,
+  });
 });
 
 // ==================== API: MENSAGENS VIA REST (FALLBACK) ====================
@@ -1149,6 +1489,7 @@ async function start() {
 
   // Executar schema
   db.exec(SCHEMA_SQL);
+  seedAuthCredentials();
 
   // Seed basico (empresas + dados demo)
   const countEmp = db.prepare('SELECT COUNT(*) as total FROM companies').get();

@@ -65,6 +65,12 @@ export default function CadastroMotoristaPublicoPage() {
             <div className="text-gray-400 text-xs mb-1">Protocolo</div>
             <div className="text-white font-bold text-lg">{resultado.id}</div>
           </div>
+          {resultado.senhaInicial && (
+            <div className="bg-blue-600/10 rounded-2xl p-5 border border-blue-500/20 mb-6">
+              <div className="text-blue-300 text-xs mb-1">Senha inicial</div>
+              <div className="text-white font-bold text-lg">{resultado.senhaInicial}</div>
+            </div>
+          )}
           <p className="text-gray-500 text-sm">Acompanhe seu email para saber o resultado da análise.</p>
         </div>
       </div>

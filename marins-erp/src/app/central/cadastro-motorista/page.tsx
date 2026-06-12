@@ -59,6 +59,12 @@ export default function CadastroMotoristaPage() {
           <h1 className="text-white font-bold text-xl mb-2">Motorista Cadastrado!</h1>
           <p className="text-gray-400 text-sm mb-2">{nome}</p>
           <p className="text-gray-600 text-xs mb-6">ID: {resultado.id}</p>
+          {resultado.senhaInicial && (
+            <div className="bg-blue-600/10 rounded-2xl p-4 border border-blue-500/20 mb-6 text-left">
+              <p className="text-blue-300 text-xs mb-1">Senha inicial</p>
+              <p className="text-white font-bold text-base">{resultado.senhaInicial}</p>
+            </div>
+          )}
           <div className="flex gap-3">
             <Link href="/central" className="flex-1 bg-white/10 text-white py-3 rounded-xl text-sm font-medium hover:bg-white/20 text-center">Voltar</Link>
             <button onClick={() => { setResultado(null); setNome(''); setCpf(''); setCnh(''); setTelefone(''); setEmail(''); setEndereco(''); setDocs([]); }}

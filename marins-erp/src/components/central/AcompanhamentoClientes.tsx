@@ -16,11 +16,17 @@ export default function AcompanhamentoClientes() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/acesso')
-      .then(r => r.json())
-      .then(d => setAcessos(d.acessos || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    const load = () => {
+      fetch('/api/acesso')
+        .then(r => r.json())
+        .then(d => setAcessos(d.acessos || []))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    };
+
+    load();
+    const id = setInterval(load, 10000);
+    return () => clearInterval(id);
   }, []);
 
   if (loading) return <div className="text-gray-500 text-sm py-4 text-center">Carregando...</div>;

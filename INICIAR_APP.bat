@@ -38,7 +38,7 @@ echo          INICIANDO SERVIDOR E ABRINDO DASHBOARD
 echo ============================================================
 echo.
 echo Servidor rodando em: http://localhost:3000
-echo Dashboard: http://localhost:3000/dashboard.html
+echo Dashboard: http://localhost:3000/dashboard
 echo Driver: http://localhost:3000/driver.html
 echo Driver CLT: http://localhost:3000/driver-clt.html
 echo.
@@ -55,7 +55,17 @@ if not exist "node_modules\" (
     goto inicio
 )
 
-start "" http://localhost:3000/dashboard.html
+if not exist "frontend\dist\" (
+    echo [BUILD] Gerando frontend React...
+    call npm run build-frontend
+    if errorlevel 1 (
+        echo [ERRO] Falha ao gerar o frontend React.
+        pause
+        goto inicio
+    )
+)
+
+start "" http://localhost:3000/dashboard
 start "" http://localhost:3000/driver.html
 start "" http://localhost:3000/driver-clt.html
 
@@ -75,7 +85,7 @@ echo.
 echo Servidor rodando em: http://localhost:3000
 echo Acesse os arquivos .html no navegador manualmente.
 echo.
-echo   Dashboard  : http://localhost:3000/dashboard.html
+echo   Dashboard  : http://localhost:3000/dashboard
 echo   Driver     : http://localhost:3000/driver.html
 echo   Driver CLT : http://localhost:3000/driver-clt.html
 echo.
@@ -92,6 +102,16 @@ if not exist "node_modules\" (
     goto inicio
 )
 
+if not exist "frontend\dist\" (
+    echo [BUILD] Gerando frontend React...
+    call npm run build-frontend
+    if errorlevel 1 (
+        echo [ERRO] Falha ao gerar o frontend React.
+        pause
+        goto inicio
+    )
+)
+
 echo [INICIANDO] node backend/server.js
 echo [AGUARDE] Pressione CTRL+C para parar o servidor...
 echo.
@@ -104,7 +124,7 @@ cls
 echo ============================================================
 echo            ABRINDO DASHBOARD NO NAVEGADOR
 echo ============================================================
-start http://localhost:3000/dashboard.html
+start http://localhost:3000/dashboard
 echo Dashboard aberto! Certifique-se de que o servidor esta rodando.
 echo.
 pause

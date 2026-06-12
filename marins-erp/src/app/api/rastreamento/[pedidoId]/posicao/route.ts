@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
-import { MOCK_LOCALIZACAO } from '@/types/rastreamento';
+import { getEntregaByPedidoId, mapEntregaToLocalizacao } from '@/lib/entregas';
 
 export async function GET(req: Request, props: { params: Promise<{ pedidoId: string }> }) {
-  await props.params;
-  await new Promise(r => setTimeout(r, 100));
-  const offset = (Math.random() - 0.5) * 0.01;
-  return NextResponse.json({
-    ...MOCK_LOCALIZACAO,
-    latitude: MOCK_LOCALIZACAO.latitude + offset,
-    longitude: MOCK_LOCALIZACAO.longitude + offset,
-    updatedAt: new Date().toISOString(),
-  });
+  const { pedidoId } = await props.params;
+  const entrega = await getEntregaByPedidoId(pedidoId);
+  if (!entrega) {
+    return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 });
+  }
+  return NextResponse.json(mapEntregaToLocalizacao(entrega));
 }
