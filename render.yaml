@@ -1,0 +1,29 @@
+# Overons API - Render
+services:
+  - type: web
+    name: overons-api
+    runtime: node
+    repo: https://github.com/vandersonmarins-hue/overons.git
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+    healthCheckPath: /api/entregas
+
+# Marins ERP - Next.js
+  - type: web
+    name: marins-erp
+    runtime: node
+    repo: https://github.com/vandersonmarins-hue/overons.git
+    plan: free
+    buildCommand: cd marins-erp && npm install && npm run build
+    startCommand: cd marins-erp && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: OVERONS_API_URL
+        value: https://overons-api.onrender.com
+      - key: NEXT_PUBLIC_OVERONS_SOCKET_URL
+        value: https://overons-api.onrender.com
